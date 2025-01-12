@@ -1,0 +1,287 @@
+[12-Jan-2025 12:10:02 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 12:10:02 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 12:10:02 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 12:10:02 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 12:27:37 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Theme_Preview_Generator::get_preview_theme() in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:111
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->handle_preview(Object(WP))
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters('', Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(565): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\class-wp.php(830): do_action_ref_array('wp', Array)
+#4 C:\xampp\htdocs\wordpress\wp-includes\functions.php(1336): WP->main('')
+#5 C:\xampp\htdocs\wordpress\wp-blog-header.php(16): wp()
+#6 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#7 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 111
+[12-Jan-2025 12:28:25 UTC] PHP Fatal error:  Uncaught TypeError: call_user_func_array(): Argument #1 ($callback) must be a valid callback, class Theme_Preview_Generator does not have a method "fix_stylesheet_directory" in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php:326
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(205): WP_Hook->apply_filters('C:\\xampp\\htdocs...', Array)
+#1 C:\xampp\htdocs\wordpress\wp-includes\theme.php(218): apply_filters('stylesheet_dire...', 'C:\\xampp\\htdocs...', 'variations', 'C:\\xampp\\htdocs...')
+#2 C:\xampp\htdocs\wordpress\wp-includes\block-template-utils.php(379): get_stylesheet_directory()
+#3 C:\xampp\htdocs\wordpress\wp-includes\block-template-utils.php(1171): _get_block_templates_files('wp_template', Array)
+#4 C:\xampp\htdocs\wordpress\wp-includes\block-template.php(140): get_block_templates(Array)
+#5 C:\xampp\htdocs\wordpress\wp-includes\block-template.php(66): resolve_block_template('page', Array, '')
+#6 C:\xampp\htdocs\wordpress\wp-includes\template.php(66): locate_block_template('', 'page', Array)
+#7 C:\xampp\htdocs\wordpress\wp-includes\template.php(499): get_query_template('page', Array)
+#8 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(81): get_page_template()
+#9 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#10 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#11 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php on line 326
+[12-Jan-2025 12:29:18 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 12:29:18 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 12:29:18 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 12:29:18 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 12:29:34 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Theme_Preview_Generator::get_preview_theme() in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:111
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->handle_preview(Object(WP))
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters('', Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(565): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\class-wp.php(830): do_action_ref_array('wp', Array)
+#4 C:\xampp\htdocs\wordpress\wp-includes\functions.php(1336): WP->main('')
+#5 C:\xampp\htdocs\wordpress\wp-blog-header.php(16): wp()
+#6 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#7 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 111
+[12-Jan-2025 12:33:26 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Theme_Preview_Generator::get_preview_theme() in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:111
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->handle_preview(Object(WP))
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters('', Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(565): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\class-wp.php(830): do_action_ref_array('wp', Array)
+#4 C:\xampp\htdocs\wordpress\wp-includes\functions.php(1336): WP->main('')
+#5 C:\xampp\htdocs\wordpress\wp-blog-header.php(16): wp()
+#6 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#7 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 111
+[12-Jan-2025 12:33:37 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Theme_Preview_Generator::get_preview_theme() in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:111
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->handle_preview(Object(WP))
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters('', Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(565): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\class-wp.php(830): do_action_ref_array('wp', Array)
+#4 C:\xampp\htdocs\wordpress\wp-includes\functions.php(1336): WP->main('')
+#5 C:\xampp\htdocs\wordpress\wp-blog-header.php(16): wp()
+#6 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#7 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 111
+[12-Jan-2025 12:34:28 UTC] PHP Fatal error:  Uncaught TypeError: call_user_func_array(): Argument #1 ($callback) must be a valid callback, class Theme_Preview_Generator does not have a method "fix_stylesheet_directory" in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php:326
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(205): WP_Hook->apply_filters('C:\\xampp\\htdocs...', Array)
+#1 C:\xampp\htdocs\wordpress\wp-includes\theme.php(218): apply_filters('stylesheet_dire...', 'C:\\xampp\\htdocs...', 'variations', 'C:\\xampp\\htdocs...')
+#2 C:\xampp\htdocs\wordpress\wp-includes\block-template-utils.php(379): get_stylesheet_directory()
+#3 C:\xampp\htdocs\wordpress\wp-includes\block-template-utils.php(1171): _get_block_templates_files('wp_template', Array)
+#4 C:\xampp\htdocs\wordpress\wp-includes\block-template.php(140): get_block_templates(Array)
+#5 C:\xampp\htdocs\wordpress\wp-includes\block-template.php(66): resolve_block_template('page', Array, '')
+#6 C:\xampp\htdocs\wordpress\wp-includes\template.php(66): locate_block_template('', 'page', Array)
+#7 C:\xampp\htdocs\wordpress\wp-includes\template.php(499): get_query_template('page', Array)
+#8 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(81): get_page_template()
+#9 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#10 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#11 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php on line 326
+[12-Jan-2025 12:35:30 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 12:35:30 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 12:35:30 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 12:35:30 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 12:35:30 UTC] PHP Fatal error:  Uncaught TypeError: call_user_func_array(): Argument #1 ($callback) must be a valid callback, class Theme_Preview_Generator does not have a method "add_section_copy_buttons" in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php:324
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#1 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3080): do_action('wp_footer')
+#3 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(25): wp_footer()
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#5 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#7 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php on line 324
+[12-Jan-2025 12:49:05 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:05 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:05 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:09 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:09 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:09 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:16 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:16 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:16 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:19 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:19 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:19 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:19 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:19 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:19 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:21 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:21 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:21 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:35 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:35 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:49:35 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:50:59 UTC] PHP Warning:  include(C:\xampp\htdocs\wordpress/wp-content/themes/variations/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 193
+[12-Jan-2025 12:50:59 UTC] PHP Warning:  include(): Failed opening 'C:\xampp\htdocs\wordpress/wp-content/themes/variations/index.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 193
+[12-Jan-2025 12:53:09 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 480
+[12-Jan-2025 12:53:09 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 480
+[12-Jan-2025 12:53:09 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:480
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 480
+[12-Jan-2025 12:53:14 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 480
+[12-Jan-2025 12:53:14 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 480
+[12-Jan-2025 12:53:14 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:480
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 480
+[12-Jan-2025 12:53:24 UTC] PHP Warning:  include(C:\xampp\htdocs\wordpress/wp-content/themes/variations/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 193
+[12-Jan-2025 12:53:24 UTC] PHP Warning:  include(): Failed opening 'C:\xampp\htdocs\wordpress/wp-content/themes/variations/index.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 193
+[12-Jan-2025 12:55:20 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:55:20 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:55:20 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:55:30 UTC] PHP Warning:  Undefined variable $available_themes in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:55:30 UTC] PHP Warning:  Trying to access array offset on value of type null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 12:55:30 UTC] PHP Fatal error:  Uncaught Error: Call to a member function get() on null in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:478
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->add_background_fixes('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 478
+[12-Jan-2025 13:00:56 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Theme_Preview_Generator::render_preview_panel() in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:535
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->render_preview_bar('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3080): do_action('wp_footer')
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(25): wp_footer()
+#5 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#7 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#8 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 535
+[12-Jan-2025 13:30:23 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 13:30:23 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 13:30:23 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 13:30:23 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 13:30:28 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 13:30:28 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 13:30:28 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 13:30:28 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 13:30:44 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 13:30:44 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 13:30:44 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 13:30:44 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 13:30:49 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 13:30:49 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 13:30:49 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 13:30:49 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
+[12-Jan-2025 14:28:53 UTC] PHP Warning:  Attempt to read property "comment_count" on null in C:\xampp\htdocs\wordpress\wp-includes\general-template.php on line 3224
+[12-Jan-2025 14:28:53 UTC] PHP Warning:  Attempt to read property "ID" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 676
+[12-Jan-2025 14:28:53 UTC] PHP Warning:  Attempt to read property "post_type" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 677
+[12-Jan-2025 14:28:53 UTC] PHP Warning:  Attempt to read property "post_parent" on null in C:\xampp\htdocs\wordpress\wp-includes\post-template.php on line 730
