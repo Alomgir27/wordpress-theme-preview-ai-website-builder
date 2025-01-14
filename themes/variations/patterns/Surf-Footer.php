@@ -37,7 +37,7 @@
 
 <!-- wp:column -->
 <div class="wp-block-column"><!-- wp:paragraph {"style":{"typography":{"fontSize":"0.91rem","fontStyle":"normal","fontWeight":"500"}}} -->
-<p style="font-size:0.91rem;font-style:normal;font-weight:500">© 2024 Surf - Theme by Tyler.</p>
+<p style="font-size:0.91rem;font-style:normal;font-weight:500">© 2025 Surf - Theme by Tyler.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"0.91rem","fontStyle":"normal","fontWeight":"500"},"spacing":{"margin":{"top":"0.51rem"}}}} -->

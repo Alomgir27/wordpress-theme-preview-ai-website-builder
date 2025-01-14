@@ -13,7 +13,7 @@
 <div class="wp-block-group" style="margin-top:0;margin-bottom:0;padding-top:50px;padding-bottom:70px"><!-- wp:columns -->
 <div class="wp-block-columns"><!-- wp:column -->
 <div class="wp-block-column"><!-- wp:paragraph {"align":"left","style":{"typography":{"fontSize":"16px","fontStyle":"normal","fontWeight":"300"}},"textColor":"contrast"} -->
-<p class="has-text-align-left has-contrast-color has-text-color" style="font-size:16px;font-style:normal;font-weight:300">© 2024 Ocean – Theme by <a href="https://tyler.com/">Tyler</a>. All Rights Reserved.    </p>
+<p class="has-text-align-left has-contrast-color has-text-color" style="font-size:16px;font-style:normal;font-weight:300">© 2025 Ocean – Theme by <a href="https://tyler.com/">Tyler</a>. All Rights Reserved.    </p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column -->
 

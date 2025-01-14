@@ -29,6 +29,6 @@
 <!-- /wp:columns -->
 
 <!-- wp:paragraph {"align":"center","style":{"typography":{"fontSize":"14px","textTransform":"capitalize"},"spacing":{"margin":{"top":"40px"}},"color":{"text":"#ffffff"}}} -->
-<p class="has-text-align-center has-text-color" style="color:#ffffff;margin-top:40px;font-size:14px;text-transform:capitalize">© Copyright 2024 | Variations by <a rel="nofollow" href="https://tyler.com/" data-type="link" data-id="https://tyler.com/">Tyler Moore</a></p>
+<p class="has-text-align-center has-text-color" style="color:#ffffff;margin-top:40px;font-size:14px;text-transform:capitalize">© Copyright 2025 | Variations by <a rel="nofollow" href="https://tyler.com/" data-type="link" data-id="https://tyler.com/">Tyler Moore</a></p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group -->

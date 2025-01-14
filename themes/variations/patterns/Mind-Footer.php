@@ -23,7 +23,7 @@
 
 <!-- wp:column -->
 <div class="wp-block-column"><!-- wp:paragraph {"align":"center","style":{"typography":{"fontSize":"1.01rem"}}} -->
-<p class="has-text-align-center" style="font-size:1.01rem">© 2024 Mind. All rights reserved.</p>
+<p class="has-text-align-center" style="font-size:1.01rem">© 2025 Mind. All rights reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column --></div>
 <!-- /wp:columns --></div>

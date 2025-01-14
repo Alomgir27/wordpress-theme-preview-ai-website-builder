@@ -18,7 +18,7 @@
 
 <!-- wp:group {"style":{"spacing":{"padding":{"top":"3.5rem","bottom":"0rem"}}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group" style="padding-top:3.5rem;padding-bottom:0rem"><!-- wp:paragraph {"align":"center","style":{"typography":{"fontSize":"0.9rem"}}} -->
-<p class="has-text-align-center" style="font-size:0.9rem">© 2024 PHOTO LOREM IPSUM. ALL RIGHTS RESERVED.</p>
+<p class="has-text-align-center" style="font-size:0.9rem">© 2025 PHOTO LOREM IPSUM. ALL RIGHTS RESERVED.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group --></div>
 <!-- /wp:group -->

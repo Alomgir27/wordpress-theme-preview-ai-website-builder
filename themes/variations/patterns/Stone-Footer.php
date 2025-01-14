@@ -154,7 +154,7 @@
 
 <!-- wp:group {"layout":{"type":"constrained","contentSize":"1140px"}} -->
 <div class="wp-block-group"><!-- wp:paragraph {"align":"center","style":{"color":{"text":"#adb6ca"},"elements":{"link":{"color":{"text":"#adb6ca"},":hover":{"color":{"text":"#adb6ca"}}}},"typography":{"textDecoration":"none","fontSize":"0.9rem"}}} -->
-<p class="has-text-align-center has-text-color has-link-color" style="color:#adb6ca;font-size:0.9rem;text-decoration:none"><a href="#">Terms and Conditions</a> | <a href="#">Privacy Policy</a> | © 2024 Stone - Theme by Tyler. All Rights Reserved.</p>
+<p class="has-text-align-center has-text-color has-link-color" style="color:#adb6ca;font-size:0.9rem;text-decoration:none"><a href="#">Terms and Conditions</a> | <a href="#">Privacy Policy</a> | © 2025 Stone - Theme by Tyler. All Rights Reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group --></div></div>
 <!-- /wp:cover -->

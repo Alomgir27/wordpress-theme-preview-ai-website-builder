@@ -21,7 +21,7 @@
 
 <!-- wp:column {"verticalAlignment":"center","layout":{"type":"default"}} -->
 <div class="wp-block-column is-vertically-aligned-center"><!-- wp:paragraph {"align":"center","style":{"elements":{"link":{"color":{"text":"#000000"},":hover":{"color":{"text":"#000000"}}}},"color":{"text":"#000000"},"typography":{"fontSize":"1.13rem"}}} -->
-<p class="has-text-align-center has-text-color has-link-color" style="color:#000000;font-size:1.13rem">© 2024 By Tyler.<br>All rights reserved.</p>
+<p class="has-text-align-center has-text-color has-link-color" style="color:#000000;font-size:1.13rem">© 2025 By Tyler.<br>All rights reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column --></div>
 <!-- /wp:columns --></div>

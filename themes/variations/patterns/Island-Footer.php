@@ -41,7 +41,7 @@
 
 <!-- wp:column {"verticalAlignment":"center","width":"25%","layout":{"type":"default"}} -->
 <div class="wp-block-column is-vertically-aligned-center" style="flex-basis:25%"><!-- wp:paragraph {"align":"left","style":{"typography":{"textDecoration":"none","fontSize":"1rem"},"color":{"text":"#03081e"},"elements":{"link":{"color":{"text":"#03081e"},":hover":{"color":{"text":"#03081e"}}}}},"fontFamily":"work-sans-regular"} -->
-<p class="has-text-align-left has-text-color has-link-color has-work-sans-regular-font-family" style="color:#03081e;font-size:1rem;text-decoration:none"><?php printf( esc_html__( '%s', 'variations' ), __( '© 2024 Island. All rights reserved.', 'variations' ) ); ?></p>
+<p class="has-text-align-left has-text-color has-link-color has-work-sans-regular-font-family" style="color:#03081e;font-size:1rem;text-decoration:none"><?php printf( esc_html__( '%s', 'variations' ), __( '© 2025 Island. All rights reserved.', 'variations' ) ); ?></p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column --></div>
 <!-- /wp:columns --></div>

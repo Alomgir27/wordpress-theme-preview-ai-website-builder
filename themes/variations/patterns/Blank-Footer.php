@@ -23,7 +23,7 @@
 
 <!-- wp:column {"verticalAlignment":"center"} -->
 <div class="wp-block-column is-vertically-aligned-center"><!-- wp:paragraph {"align":"right","style":{"layout":{"selfStretch":"fit","flexSize":null},"typography":{"fontSize":"16px"},"color":{"text":"#334155"},"elements":{"link":{"color":{"text":"#334155"}}}}} -->
-<p class="has-text-align-right has-text-color has-link-color" style="color:#334155;font-size:16px">Copyright © 2024 BLANK - All Rights Reserved</p>
+<p class="has-text-align-right has-text-color has-link-color" style="color:#334155;font-size:16px">Copyright © 2025 BLANK - All Rights Reserved</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column --></div>
 <!-- /wp:columns --></div>

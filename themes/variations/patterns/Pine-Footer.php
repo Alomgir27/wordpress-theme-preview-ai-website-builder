@@ -16,7 +16,7 @@
 <div class="wp-block-group"><!-- wp:site-title {"level":2,"style":{"color":{"text":"#fffffd"},"typography":{"fontSize":"2rem"}}} /-->
 
 <!-- wp:paragraph {"style":{"color":{"text":"#aeaeae"},"typography":{"fontStyle":"normal","fontWeight":"400","lineHeight":"1.5","fontSize":"1.13rem"},"spacing":{"margin":{"bottom":"1.01rem","right":"1.01rem","top":"0.7rem"}}}} -->
-<p class="has-text-color" style="color:#aeaeae;margin-top:0.7rem;margin-right:1.01rem;margin-bottom:1.01rem;font-size:1.13rem;font-style:normal;font-weight:400;line-height:1.5">© 2024 Pine - Theme by Tyler</p>
+<p class="has-text-color" style="color:#aeaeae;margin-top:0.7rem;margin-right:1.01rem;margin-bottom:1.01rem;font-size:1.13rem;font-style:normal;font-weight:400;line-height:1.5">© 2025 Pine - Theme by Tyler</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group --></div>
 <!-- /wp:column -->

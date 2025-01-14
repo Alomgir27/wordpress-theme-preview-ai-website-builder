@@ -27,7 +27,7 @@
 <!-- /wp:spacer -->
 
 <!-- wp:paragraph {"align":"left","style":{"typography":{"fontSize":"16px"},"color":{"text":"#ffffff"}}} -->
-<p class="has-text-align-left has-text-color" style="color:#ffffff;font-size:16px">© Copyright 2024 | Variations by Tyler<a rel="nofollow" href="https://tyler.com/" data-type="link" data-id="https://tyler.com/"> </a>Moore</p>
+<p class="has-text-align-left has-text-color" style="color:#ffffff;font-size:16px">© Copyright 2025 | Variations by Tyler<a rel="nofollow" href="https://tyler.com/" data-type="link" data-id="https://tyler.com/"> </a>Moore</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column -->
 

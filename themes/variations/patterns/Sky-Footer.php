@@ -27,6 +27,6 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"align":"center","style":{"spacing":{"margin":{"top":"12px"}},"color":{"text":"#f8f6f1"}},"fontSize":"xxx-small"} -->
-<p class="has-text-align-center has-text-color has-xxx-small-font-size" style="color:#f8f6f1;margin-top:12px">© Copyright 2024 All Right Reserved.</p>
+<p class="has-text-align-center has-text-color has-xxx-small-font-size" style="color:#f8f6f1;margin-top:12px">© Copyright 2025 All Right Reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group -->

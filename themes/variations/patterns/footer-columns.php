@@ -44,7 +44,7 @@
 <div class="wp-block-group alignwide" style="margin-top:0;margin-bottom:0;padding-top:2.71rem;padding-right:0;padding-bottom:0;padding-left:0"><!-- wp:group {"style":{"spacing":{"blockGap":"0","padding":{"top":"0","right":"0","bottom":"0","left":"0"}},"dimensions":{"minHeight":"0px"},"border":{"width":"0px","style":"none","radius":"0px"},"elements":{"link":{"color":{"text":"#0693e4"}}}},"textColor":"main-accent","layout":{"type":"flex","flexWrap":"wrap","justifyContent":"space-between"}} -->
 <div class="wp-block-group has-main-accent-color has-text-color has-link-color" style="border-style:none;border-width:0px;border-radius:0px;min-height:0px;padding-top:0;padding-right:0;padding-bottom:0;padding-left:0"><!-- wp:paragraph {"style":{"typography":{"fontSize":"1.01rem"},"color":{"text":"#0693e4"}}} -->
 <p class="has-text-color" style="color:#0693e4;font-size:1.01rem"><?php printf(
-	esc_html__( '© Copyright 2024 | Variations by %s | All rights reserved | Powered by WordPress', 'variations' ),
+	esc_html__( '© Copyright 2025 | Variations by %s | All rights reserved | Powered by WordPress', 'variations' ),
 	'<a href="' . esc_url( __( 'https://tyler.com/', 'variations' ) ) . '" rel="nofollow" data-type="link" data-id="' . esc_url( __( 'https://tyler.com/', 'variations' ) ) . '">Tyler Moore</a>'
 ); ?></p>
 <!-- /wp:paragraph --></div>

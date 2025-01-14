@@ -48,7 +48,7 @@
 
 <!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap","justifyContent":"center"}} -->
 <div class="wp-block-group"><!-- wp:paragraph {"align":"center","style":{"typography":{"fontSize":"1.13rem"},"color":{"text":"#202020"}}} -->
-<p class="has-text-align-center has-text-color" style="color:#202020;font-size:1.13rem">© 2024 Company. All rights reserved.</p>
+<p class="has-text-align-center has-text-color" style="color:#202020;font-size:1.13rem">© 2025 Company. All rights reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group --></div>
 <!-- /wp:group -->

@@ -29,7 +29,7 @@
 
 <!-- wp:column -->
 <div class="wp-block-column"><!-- wp:paragraph {"style":{"typography":{"fontSize":"1.1rem"}}} -->
-<p style="font-size:1.1rem">Copyright © 2024 Sunshine - Theme by Tyler.<br>All rights reserved.</p>
+<p style="font-size:1.1rem">Copyright © 2025 Sunshine - Theme by Tyler.<br>All rights reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column --></div>
 <!-- /wp:columns --></div>

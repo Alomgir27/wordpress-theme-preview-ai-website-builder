@@ -24,7 +24,7 @@
 <!-- wp:column {"verticalAlignment":"center"} -->
 <div class="wp-block-column is-vertically-aligned-center"><!-- wp:paragraph {"align":"center","style":{"typography":{"fontSize":"1.01rem"}}} -->
 <p class="has-text-align-center" style="font-size:1.01rem"><?php printf(
-	esc_html__( '© Copyright 2024 | Variations by %s', 'variations' ),
+	esc_html__( '© Copyright 2025 | Variations by %s', 'variations' ),
 	'<a href="' . esc_url( __( 'https://tyler.com/', 'variations' ) ) . '" rel="nofollow" data-type="link" data-id="' . esc_url( __( 'https://tyler.com/', 'variations' ) ) . '">Tyler Moore</a>'
 ); ?></p>
 <!-- /wp:paragraph --></div>

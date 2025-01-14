@@ -45,6 +45,6 @@
 <!-- /wp:columns -->
 
 <!-- wp:paragraph {"align":"center","style":{"spacing":{"margin":{"top":"40px"}},"elements":{"link":{"color":{"text":"#ffffff"}}},"typography":{"fontSize":"19px"},"color":{"text":"#ffffff"}}} -->
-<p class="has-text-align-center has-text-color has-link-color" style="color:#ffffff;margin-top:40px;font-size:19px">© Copyright 2024 | Variations by <a href="https://tyler.com/" rel="nofollow" data-type="link" data-id="https://tyler.com/">Tyler Moore</a></p>
+<p class="has-text-align-center has-text-color has-link-color" style="color:#ffffff;margin-top:40px;font-size:19px">© Copyright 2025 | Variations by <a href="https://tyler.com/" rel="nofollow" data-type="link" data-id="https://tyler.com/">Tyler Moore</a></p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group -->

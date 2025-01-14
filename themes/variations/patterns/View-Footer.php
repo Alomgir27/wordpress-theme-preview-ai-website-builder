@@ -21,7 +21,7 @@
 
 <!-- wp:column {"verticalAlignment":"center","width":"","layout":{"type":"default"}} -->
 <div class="wp-block-column is-vertically-aligned-center"><!-- wp:paragraph {"align":"center","style":{"color":{"text":"#000001"},"typography":{"fontSize":"1.01rem"}}} -->
-<p class="has-text-align-center has-text-color" style="color:#000001;font-size:1.01rem">© 2024 View - Theme by Tyler.</p>
+<p class="has-text-align-center has-text-color" style="color:#000001;font-size:1.01rem">© 2025 View - Theme by Tyler.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"align":"center","style":{"color":{"text":"#000001"},"typography":{"fontSize":"1.01rem"},"spacing":{"margin":{"top":"0px","bottom":"0px"}}}} -->

@@ -89,6 +89,6 @@
 <!-- /wp:separator -->
 
 <!-- wp:paragraph {"align":"center","style":{"typography":{"fontSize":"16px"},"color":{"text":"#ffffff"}},"fontFamily":"poppins"} -->
-<p class="has-text-align-center has-text-color has-poppins-font-family" style="color:#ffffff;font-size:16px">Copyright© 2024 Tasty - All Rights Reserved.</p>
+<p class="has-text-align-center has-text-color has-poppins-font-family" style="color:#ffffff;font-size:16px">Copyright© 2025 Tasty - All Rights Reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group -->

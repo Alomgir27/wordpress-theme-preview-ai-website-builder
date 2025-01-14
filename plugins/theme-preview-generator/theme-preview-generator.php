@@ -13,9 +13,24 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Include required files
+require_once plugin_dir_path(__FILE__) . 'includes/class-cloudinary-handler.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-openai-handler.php';
+require_once plugin_dir_path(__FILE__) . 'image-upload-handler.php';
+
 class Theme_Preview_Generator {
     private static $instance = null;
-    private $original_theme = null;
+    private $settings = array();
+    private $default_settings = array(
+        'openai_api_key' => '',
+        'cloudinary_cloud_name' => '',
+        'cloudinary_api_key' => '',
+        'cloudinary_api_secret' => ''
+    );
+    private $cloudinary;
+    private $openai;
+    private $image_handler;
+    private $original_theme;
 
     public static function get_instance() {
         if (null === self::$instance) {
@@ -25,12 +40,186 @@ class Theme_Preview_Generator {
     }
 
     private function __construct() {
-        // Add early hooks for theme switching
+        $this->settings = get_option('theme_preview_settings', $this->default_settings);
+        
+        // Initialize handlers
+        $this->cloudinary = new Theme_Preview_Cloudinary_Handler();
+        $this->openai = new Theme_Preview_OpenAI_Handler();
+        $this->image_handler = new Theme_Preview_Image_Handler();
+        
+        // Add hooks
+        add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_init', array($this, 'register_settings'));
         add_action('plugins_loaded', array($this, 'early_init'), 1);
         add_action('init', array($this, 'init'));
-        add_action('admin_menu', array($this, 'add_admin_menu'));
-        register_activation_hook(__FILE__, array($this, 'activate'));
-        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+        
+        // Add AJAX handlers
+        add_action('wp_ajax_get_cloudinary_credentials', array($this, 'handle_get_cloudinary_credentials'));
+        add_action('wp_ajax_nopriv_get_cloudinary_credentials', array($this, 'handle_get_cloudinary_credentials'));
+    }
+
+    public function register_settings() {
+        register_setting(
+            'theme_preview_settings',
+            'theme_preview_settings',
+            array($this, 'sanitize_settings')
+        );
+
+        add_settings_section(
+            'theme_preview_api_settings',
+            'API Configuration',
+            array($this, 'render_settings_section'),
+            'theme_preview_settings'
+        );
+
+        // OpenAI Settings
+        add_settings_field(
+            'openai_api_key',
+            'OpenAI API Key',
+            array($this, 'render_text_field'),
+            'theme_preview_settings',
+            'theme_preview_api_settings',
+            array('field' => 'openai_api_key', 'description' => 'Enter your OpenAI API key for AI content generation')
+        );
+
+        // Cloudinary Settings
+        add_settings_field(
+            'cloudinary_cloud_name',
+            'Cloudinary Cloud Name',
+            array($this, 'render_text_field'),
+            'theme_preview_settings',
+            'theme_preview_api_settings',
+            array('field' => 'cloudinary_cloud_name', 'description' => 'Your Cloudinary cloud name')
+        );
+
+        add_settings_field(
+            'cloudinary_api_key',
+            'Cloudinary API Key',
+            array($this, 'render_text_field'),
+            'theme_preview_settings',
+            'theme_preview_api_settings',
+            array('field' => 'cloudinary_api_key', 'description' => 'Your Cloudinary API key')
+        );
+
+        add_settings_field(
+            'cloudinary_api_secret',
+            'Cloudinary API Secret',
+            array($this, 'render_text_field'),
+            'theme_preview_settings',
+            'theme_preview_api_settings',
+            array('field' => 'cloudinary_api_secret', 'description' => 'Your Cloudinary API secret')
+        );
+    }
+
+    public function render_settings_section() {
+        echo '<p>Enter your API credentials below. These are required for the plugin to function properly.</p>';
+    }
+
+    public function render_text_field($args) {
+        $field = $args['field'];
+        $description = $args['description'] ?? '';
+        $value = isset($this->settings[$field]) ? $this->settings[$field] : '';
+        $is_secret = strpos($field, 'api_key') !== false || strpos($field, 'api_secret') !== false;
+        
+        printf(
+            '<input type="%s" id="%s" name="theme_preview_settings[%s]" value="%s" class="regular-text" />',
+            $is_secret ? 'password' : 'text',
+            esc_attr($field),
+            esc_attr($field),
+            esc_attr($value)
+        );
+        
+        if ($description) {
+            printf('<p class="description">%s</p>', esc_html($description));
+        }
+    }
+
+    public function sanitize_settings($input) {
+        $sanitized = array();
+        foreach ($this->default_settings as $key => $default) {
+            $sanitized[$key] = isset($input[$key]) ? sanitize_text_field($input[$key]) : $default;
+        }
+        return $sanitized;
+    }
+
+    public function add_admin_menu() {
+        add_menu_page(
+            'Theme Preview Generator',
+            'Theme Preview',
+            'manage_options',
+            'theme-preview-settings',
+            array($this, 'render_settings_page'),
+            'dashicons-images-alt2',
+            30
+        );
+    }
+
+    public function render_settings_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        ?>
+        <div class="wrap theme-preview-settings-page">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            <div class="notice notice-info">
+                <p>Configure your API keys for OpenAI and Cloudinary integration. These are required for AI-powered content generation and cloud image storage.</p>
+            </div>
+            <form action="options.php" method="post">
+                <?php
+                settings_fields('theme_preview_settings');
+                do_settings_sections('theme_preview_settings');
+                submit_button('Save API Settings');
+                ?>
+            </form>
+        </div>
+        <style>
+            .theme-preview-settings-page .form-table th {
+                width: 200px;
+                font-weight: 600;
+            }
+            .theme-preview-settings-page .regular-text {
+                width: 400px;
+                padding: 8px;
+            }
+            .theme-preview-settings-page .notice {
+                margin: 20px 0;
+            }
+        </style>
+        <?php
+    }
+
+    public function get_setting($key) {
+        return isset($this->settings[$key]) ? $this->settings[$key] : '';
+    }
+
+    public function enqueue_scripts() {
+        wp_enqueue_style(
+            'theme-preview-generator',
+            plugins_url('assets/css/theme-preview.css', __FILE__),
+            array(),
+            '1.0.0'
+        );
+
+        wp_enqueue_script(
+            'theme-preview-generator',
+            plugins_url('assets/js/image-handler.js', __FILE__),
+            array('jquery'),
+            '1.0.0',
+            true
+        );
+
+        // Get Cloudinary settings
+        $cloud_name = $this->get_setting('cloudinary_cloud_name');
+        $upload_preset = $this->get_setting('cloudinary_upload_preset');
+
+        wp_localize_script('theme-preview-generator', 'themePreviewSettings', array(
+            'cloudName' => $cloud_name,
+            'uploadPreset' => $upload_preset,
+            'themeName' => get_stylesheet(),
+            'maxFileSize' => 5 * 1024 * 1024, // 5MB in bytes
+            'allowedTypes' => array('image/jpeg', 'image/png', 'image/gif', 'image/webp')
+        ));
     }
 
     public function early_init() {
@@ -231,15 +420,15 @@ class Theme_Preview_Generator {
             position: absolute !important;
             top: 10px !important;
             right: 10px !important;
-            background: white !important;
+            background: rgba(255, 255, 255, 0.95) !important;
             border: none !important;
-            border-radius: 6px !important;
-            padding: 6px !important;
-            width: 28px !important;
-            height: 28px !important;
-            min-width: 28px !important;
-            min-height: 28px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+            border-radius: 8px !important;
+            padding: 8px !important;
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
+            min-height: 32px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             cursor: pointer !important;
             z-index: 999999 !important;
             transition: all 0.2s ease !important;
@@ -248,16 +437,92 @@ class Theme_Preview_Generator {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
         }
         .section-copy-button svg {
-            width: 14px !important;
-            height: 14px !important;
+            width: 16px !important;
+            height: 16px !important;
+            stroke: #1e1e1e !important;
+            stroke-width: 2 !important;
+            transition: transform 0.2s ease !important;
         }
         .section-copy-button:hover {
             transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+            background: rgba(255, 255, 255, 0.98) !important;
+        }
+        .section-copy-button:hover svg {
+            transform: scale(1.1) !important;
         }
         [data-copyable]:hover .section-copy-button {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        /* Add styles for the replace image button */
+        .section-copy-button.replace-image {
+            left: 10px !important;
+            right: auto !important;
+        }
+        /* Add tooltip styles */
+        .section-copy-button::after {
+            content: attr(title);
+            position: absolute;
+            right: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-right: 8px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        .section-copy-button:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Add styles for the toast notification */
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 999999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .copy-toast.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Ensure buttons don't interfere with content */
+        [data-copyable] {
+            position: relative !important;
+        }
+        /* Add styles for button container */
+        .section-buttons {
+            position: absolute !important;
+            top: 10px !important;
+            right: 10px !important;
+            display: flex !important;
+            gap: 8px !important;
+            z-index: 999999 !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transition: all 0.2s ease !important;
+        }
+        [data-copyable]:hover .section-buttons {
             opacity: 1 !important;
             visibility: visible !important;
         }
@@ -297,84 +562,15 @@ class Theme_Preview_Generator {
                 }
             });
 
-            // Add action buttons to images
-            document.querySelectorAll('img').forEach(img => {
-                if (img.closest('#theme-preview-panel')) return;
-                if (img.closest('.wp-block-cover')){
-                    return;
-                }
-                
-                const wrapper = document.createElement('div');
-                wrapper.style.cssText = 'position: relative; display: inline-block;';
-
-                img.parentNode.insertBefore(wrapper, img);
-                wrapper.appendChild(img);
-                
-                const actions = document.createElement('div');
-                actions.className = 'content-actions';
-                actions.style.cssText = `
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    display: none;
-                    z-index: 999;
-                `;
-                
-                const editBtn = createActionButton('Edit', 'pencil');
-                const copyBtn = createActionButton('Copy URL', 'copy');
-                const uploadBtn = createActionButton('Replace', 'upload');
-                const previewBtn = createActionButton('Preview', 'eye');
-                
-                // Add file input for image replacement
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.accept = 'image/*';
-                fileInput.style.display = 'none';
-                uploadBtn.appendChild(fileInput);
-                
-                fileInput.addEventListener('change', function(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            img.src = e.target.result;
-                            showToast('Image replaced successfully!');
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-                
-                editBtn.addEventListener('click', () => {
-                    window.open('https://chat.openai.com', '_blank');
-                });
-                
-                copyBtn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(img.src).then(() => {
-                        showToast('Image URL copied to clipboard!');
-                    });
-                });
-                
-                previewBtn.addEventListener('click', () => {
-                    showImagePreview(img.src);
-                });
-                
-                uploadBtn.addEventListener('click', () => {
-                    fileInput.click();
-                });
-                
-                actions.appendChild(editBtn);
-                actions.appendChild(copyBtn);
-                actions.appendChild(uploadBtn);
-                actions.appendChild(previewBtn);
-                wrapper.appendChild(actions);
-                
-                wrapper.addEventListener('mouseenter', () => actions.style.display = 'flex');
-                wrapper.addEventListener('mouseleave', () => actions.style.display = 'none');
-            });
 
             // Add action buttons to text content
             document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(element => {
-                if (!element.textContent.trim() || element.closest('#theme-preview-panel')) return;
+                if (!element.textContent.trim()) return;
+                if (element.hasAttribute('data-has-actions')) return;
+                if (element.closest('.content-actions')) return;
+                
+                element.setAttribute('data-has-actions', 'true');
+                element.setAttribute('data-original-content', element.textContent);
                 
                 const wrapper = document.createElement('div');
                 wrapper.style.cssText = 'position: relative;';
@@ -388,40 +584,97 @@ class Theme_Preview_Generator {
                     top: 50%;
                     transform: translateY(-50%);
                     right: -10px;
-                    display: none;
                     z-index: 999;
                     padding: 4px;
                     border-radius: 8px;
                     background: rgba(255,255,255,0.95);
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    display: flex;
+                    gap: 4px;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.2s ease, visibility 0.2s ease;
                 `;
                 
+                // Edit button
                 const editBtn = createActionButton('Edit', 'pencil');
-                const copyBtn = createActionButton('Copy', 'copy');
-                
                 editBtn.addEventListener('click', () => {
-                    window.open('https://chat.openai.com', '_blank');
+                    if (window.themePreviewHandler) {
+                        window.themePreviewHandler.showEditModal(element);
+                    } else {
+                        console.error('Theme Preview Handler not initialized');
+                    }
                 });
                 
+                // Copy button
+                const copyBtn = createActionButton('Copy', 'copy');
                 copyBtn.addEventListener('click', () => {
                     navigator.clipboard.writeText(element.textContent).then(() => {
                         showToast('Text copied to clipboard!');
                     });
                 });
                 
+                // Generate button
+                const generateBtn = createActionButton('Generate', 'sparkles');
+                generateBtn.addEventListener('click', () => {
+                    const tagName = element.tagName.toLowerCase();
+                    let prompt = '';
+                    
+                    switch(tagName) {
+                        case 'h1':
+                            prompt = 'Generate a catchy headline for this section';
+                            break;
+                        case 'h2':
+                        case 'h3':
+                            prompt = 'Generate a compelling subheading';
+                            break;
+                        case 'p':
+                            prompt = 'Generate engaging paragraph content';
+                            break;
+                        default:
+                            prompt = 'Generate appropriate content for this element';
+                    }
+                    
+                    if (window.themePreviewHandler) {
+                        window.themePreviewHandler.showGenerateModal(element, prompt);
+                    } else {
+                        console.error('Theme Preview Handler not initialized');
+                    }
+                });
+                
+                // View Original button
+                const viewOriginalBtn = createActionButton('Original', 'eye');
+                viewOriginalBtn.style.display = 'none';
+                viewOriginalBtn.addEventListener('click', () => {
+                    showContentComparison(element);
+                });
+                
                 actions.appendChild(editBtn);
                 actions.appendChild(copyBtn);
+                actions.appendChild(generateBtn);
+                actions.appendChild(viewOriginalBtn);
                 wrapper.appendChild(actions);
                 
-                wrapper.addEventListener('mouseenter', () => actions.style.display = 'flex');
-                wrapper.addEventListener('mouseleave', () => actions.style.display = 'none');
+                wrapper.addEventListener('mouseenter', () => {
+                    actions.style.opacity = '1';
+                    actions.style.visibility = 'visible';
+                    const originalContent = element.getAttribute('data-original-content');
+                    if (originalContent && originalContent !== element.textContent) {
+                        viewOriginalBtn.style.display = 'flex';
+                    }
+                });
+                
+                wrapper.addEventListener('mouseleave', () => {
+                    actions.style.opacity = '0';
+                    actions.style.visibility = 'hidden';
+                });
             });
             
             // Add action buttons to links
             document.querySelectorAll('a').forEach(element => {
                 // Skip elements that should be ignored
                 if (element.hasAttribute('data-has-action')) return;
-                if (element.closest('#theme-preview-panel, .content-actions, #wpadminbar, script, style, noscript')) return;
+                if (element.closest('.content-actions, #wpadminbar, script, style, noscript')) return;
                 
                 // Skip empty links or system links
                 if (!element.textContent.trim() || 
@@ -517,7 +770,6 @@ class Theme_Preview_Generator {
                 // Handle cover block images
                 document.querySelectorAll('.wp-block-cover__image-background, .wp-image-*').forEach(element => {
                     if (element.hasAttribute('data-has-action')) return;
-                    if (element.closest('#theme-preview-panel')) return;
                     if (element.closest('.content-actions')) return;
 
                     // Create wrapper if needed
@@ -601,7 +853,6 @@ class Theme_Preview_Generator {
                 // Handle WordPress buttons
                 document.querySelectorAll('.wp-block-button__link, .wp-element-button').forEach(button => {
                     if (button.hasAttribute('data-has-action')) return;
-                    if (button.closest('#theme-preview-panel')) return;
                     if (button.closest('.content-actions')) return;
 
                     const wrapper = document.createElement('div');
@@ -659,44 +910,265 @@ class Theme_Preview_Generator {
             });
         });
 
-        function createActionButton(title, icon) {
+        // Function to create action buttons with proper icons
+        function createActionButton(label, icon) {
             const button = document.createElement('button');
-            button.className = 'content-action-button';
-            button.title = title;
+            button.style.cssText = `
+                border: none;
+                background: none;
+                cursor: pointer;
+                padding: 4px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                color: #666;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            `;
             
-            const icons = {
-                pencil: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>`,
-                copy: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>`,
-                upload: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>`,
-                eye: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                </svg>`,
-                link: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                </svg>`,
-                open: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>`
-            };
+            let iconSvg = '';
+            switch(icon) {
+                case 'pencil':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>`;
+                    break;
+                case 'copy':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>`;
+                    break;
+                case 'sparkles':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>`;
+                    break;
+                case 'eye':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>`;
+                    break;
+            }
             
-            button.innerHTML = icons[icon] || icons.copy; // Fallback to copy icon if undefined
+            button.innerHTML = `${iconSvg}<span style="font-size: 12px;">${label}</span>`;
+            button.title = label;
+            
+            button.addEventListener('mouseenter', () => {
+                button.style.backgroundColor = 'rgba(0,0,0,0.05)';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.backgroundColor = 'transparent';
+            });
             
             return button;
         }
+
+        // Function to show text edit modal
+        function showTextEditModal(element) {
+            const originalContent = element.getAttribute('data-original-content');
+            const currentContent = element.textContent;
+            
+            const modal = document.createElement('div');
+            modal.className = 'text-edit-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                backdrop-filter: blur(5px);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 999999;
+            `;
+            
+            const container = document.createElement('div');
+            container.style.cssText = `
+                background: white;
+                padding: 32px;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 800px;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+            `;
+            
+            const header = document.createElement('div');
+            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            header.innerHTML = `
+                <h3 style="margin: 0; color: #1e1e1e;">Edit Content</h3>
+                <button class="close-button" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+            `;
+            
+            const contentArea = document.createElement('div');
+            contentArea.style.cssText = 'display: flex; gap: 24px;';
+            
+            const originalSide = document.createElement('div');
+            originalSide.style.cssText = 'flex: 1;';
+            originalSide.innerHTML = `
+                <h4 style="margin: 0 0 8px 0; color: #666;">Original Content</h4>
+                <div style="padding: 16px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px;">${originalContent}</div>
+                <button class="restore-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Restore Original</button>
+            `;
+            
+            const editSide = document.createElement('div');
+            editSide.style.cssText = 'flex: 1;';
+            editSide.innerHTML = `
+                <h4 style="margin: 0 0 8px 0; color: #666;">Edit Content</h4>
+                <textarea style="width: 100%; min-height: 150px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font-family: inherit;">${currentContent}</textarea>
+                <div style="margin-top: 16px; display: flex; gap: 8px;">
+                    <button class="save-button" style="padding: 8px 16px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Changes</button>
+                    <button class="copy-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Copy Content</button>
+                </div>
+            `;
+            
+            contentArea.appendChild(originalSide);
+            contentArea.appendChild(editSide);
+            
+            container.appendChild(header);
+            container.appendChild(contentArea);
+            modal.appendChild(container);
+            
+            // Event listeners
+            const closeBtn = header.querySelector('.close-button');
+            const restoreBtn = originalSide.querySelector('.restore-button');
+            const saveBtn = editSide.querySelector('.save-button');
+            const copyBtn = editSide.querySelector('.copy-button');
+            const textarea = editSide.querySelector('textarea');
+            
+            closeBtn.addEventListener('click', () => modal.remove());
+            
+            restoreBtn.addEventListener('click', () => {
+                element.textContent = originalContent;
+                modal.remove();
+                showToast('Content restored to original');
+            });
+            
+            saveBtn.addEventListener('click', () => {
+                const newContent = textarea.value.trim();
+                if (newContent) {
+                    element.textContent = newContent;
+                    modal.remove();
+                    showToast('Changes saved successfully');
+                }
+            });
+            
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(textarea.value).then(() => {
+                    showToast('Content copied to clipboard');
+                });
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+            
+            document.body.appendChild(modal);
+        }
+
+        // Update the event listeners for text elements
+        document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(element => {
+            if (!element.textContent.trim()) return;
+            if (element.hasAttribute('data-has-actions')) return;
+            if (element.closest('.content-actions')) return;
+            
+            element.setAttribute('data-has-actions', 'true');
+            element.setAttribute('data-original-content', element.textContent);
+            
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `
+                position: relative;
+                display: inline-block;
+            `;
+            
+            const actions = document.createElement('div');
+            actions.style.cssText = `
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                right: -10px;
+                z-index: 999;
+                padding: 4px;
+                border-radius: 8px;
+                background: rgba(255,255,255,0.95);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                display: flex;
+                gap: 4px;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.2s ease, visibility 0.2s ease;
+            `;
+            
+            // Edit button
+            const editBtn = createActionButton('Edit', 'pencil');
+            editBtn.addEventListener('click', () => {
+                if (window.themePreviewHandler) {
+                    window.themePreviewHandler.showEditModal(element);
+                } else {
+                    console.error('Theme Preview Handler not initialized');
+                }
+            });
+            
+            // Copy button
+            const copyBtn = createActionButton('Copy', 'copy');
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(element.textContent).then(() => {
+                    showToast('Text copied to clipboard!');
+                });
+            });
+            
+            // Generate button
+            const generateBtn = createActionButton('Generate', 'sparkles');
+            generateBtn.addEventListener('click', () => {
+                const tagName = element.tagName.toLowerCase();
+                let prompt = '';
+                
+                switch(tagName) {
+                    case 'h1':
+                        prompt = 'Generate a catchy headline for this section';
+                        break;
+                    case 'h2':
+                    case 'h3':
+                        prompt = 'Generate a compelling subheading';
+                        break;
+                    case 'p':
+                        prompt = 'Generate engaging paragraph content';
+                        break;
+                    default:
+                        prompt = 'Generate appropriate content for this element';
+                }
+                
+                if (window.themePreviewHandler) {
+                    window.themePreviewHandler.showGenerateModal(element, prompt);
+                } else {
+                    console.error('Theme Preview Handler not initialized');
+                }
+            });
+            
+            actions.appendChild(editBtn);
+            actions.appendChild(copyBtn);
+            actions.appendChild(generateBtn);
+            wrapper.appendChild(actions);
+            
+            wrapper.addEventListener('mouseenter', () => {
+                actions.style.opacity = '1';
+                actions.style.visibility = 'visible';
+            });
+            
+            wrapper.addEventListener('mouseleave', () => {
+                actions.style.opacity = '0';
+                actions.style.visibility = 'hidden';
+            });
+            
+            element.parentNode.insertBefore(wrapper, element);
+            wrapper.appendChild(element);
+        });
 
         function showImagePreview(src) {
             // Create overlay
@@ -816,7 +1288,6 @@ class Theme_Preview_Generator {
             ].join(',');
 
             document.querySelectorAll(mainSectionSelectors).forEach(function(section) {
-                if (section.closest('#theme-preview-panel')) return;
                 if (section.querySelector('.section-copy-button')) return; // Skip if already has copy button
                 if (section.closest('[data-copyable]')) return; // Skip if parent is already copyable
                                 
@@ -847,85 +1318,7 @@ class Theme_Preview_Generator {
                 
                 section.appendChild(button);
 
-                const image = section.querySelector('img');
-                if (image && section.querySelectorAll('img').length === 1) {
-                    console.log('Found section with single image:', {
-                        section: section,
-                        imageSource: image.src
-                    });
-
-                    // Add only replace image button
-                    const replaceBtn = document.createElement('button');
-                    replaceBtn.className = 'section-copy-button';
-                    replaceBtn.title = 'Replace Image';
-                    replaceBtn.style.cssText = `
-                        position: absolute !important;
-                        top: 10px !important;
-                        left: 10px !important;
-                        background: white !important;
-                        border: none !important;
-                        border-radius: 6px !important;
-                        padding: 6px !important;
-                        width: 28px !important;
-                        height: 28px !important;
-                        min-width: 28px !important;
-                        min-height: 28px !important;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-                        cursor: pointer !important;
-                        z-index: 999999 !important;
-                        transition: all 0.2s ease !important;
-                        opacity: 0 !important;
-                        visibility: hidden !important;
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                    `;
-                    replaceBtn.innerHTML = `
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                    `;
-
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = 'image/*';
-                    fileInput.style.display = 'none';
-                    replaceBtn.appendChild(fileInput);
-
-                    fileInput.addEventListener('change', function(e) {
-                        const file = e.target.files[0];
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                image.src = e.target.result;
-                                showToast('Image replaced successfully!');
-                            };
-                            reader.readAsDataURL(file);
-                        }
-                    });
-
-                    replaceBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        fileInput.click();
-                    });
-
-                    section.appendChild(replaceBtn);
-
-                    // Show/hide replace button on hover
-                    section.addEventListener('mouseenter', () => {
-                        replaceBtn.style.opacity = '1';
-                        replaceBtn.style.visibility = 'visible';
-                    });
-                    
-                    section.addEventListener('mouseleave', () => {
-                        replaceBtn.style.opacity = '0';
-                        replaceBtn.style.visibility = 'hidden';
-                    });
-
-                    console.log('Added replace image button');
-                }
+               
             });
 
            
@@ -942,45 +1335,38 @@ class Theme_Preview_Generator {
             `);
 
             // Debug info
-            console.log('Total elements found:', contentElements.length);
+            // console.log('Total elements found:', contentElements.length);
 
             // Keep track of elements that already have buttons
             const processedElements = new Set();
 
             contentElements.forEach(element => {
                 // Debug each element
-                console.log('Processing element:', {
-                    tag: element.tagName,
-                    classes: element.className,
-                    href: element.href || element.closest('a')?.href,
-                    text: element.textContent.trim(),
-                    hasBackground: window.getComputedStyle(element).backgroundImage !== 'none',
-                    rect: element.getBoundingClientRect()
-                });
+                // console.log('Processing element:', {
+                //     tag: element.tagName,
+                //     classes: element.className,
+                //     href: element.href || element.closest('a')?.href,
+                //     text: element.textContent.trim(),
+                //     hasBackground: window.getComputedStyle(element).backgroundImage !== 'none',
+                //     rect: element.getBoundingClientRect()
+                // });
 
                 // Skip if already processed
-                if (processedElements.has(element)) {
-                    console.log('Skipping: already processed');
-                    return;
-                }
+                // if (processedElements.has(element)) {
+                //     console.log('Skipping: already processed');
+                //     return;
+                // }
                 
-                // Skip empty elements and UI elements
-                if (!element.textContent.trim()) {
-                    console.log('Skipping: empty text');
-                    return;
-                }
-                if (element.closest('#theme-preview-panel')) {
-                    console.log('Skipping: in preview panel');
-                    return;
-                }
-                if (element.closest('.content-actions')) {
-                    console.log('Skipping: in content actions');
-                    return;
-                }
-                if (element.closest('#wpadminbar')) {
-                    console.log('Skipping: in admin bar');
-                    return;
-                }
+                // // Skip empty elements and UI elements
+                // if (!element.textContent.trim()) {
+                //     console.log('Skipping: empty text');
+                //     return;
+                // }
+
+                // if (element.closest('#wpadminbar')) {
+                //     console.log('Skipping: in admin bar');
+                //     return;
+                // }
 
                 // Skip admin/system links
                 const href = element.href;
@@ -1029,7 +1415,6 @@ class Theme_Preview_Generator {
                     if (element.hasAttribute('data-has-action')) return;
                     
                     // Skip UI elements
-                    if (element.closest('#theme-preview-panel')) return;
                     if (element.closest('.content-actions')) return;
                     if (element.closest('#wpadminbar')) return;
                     if (element.closest('script')) return;
@@ -1218,96 +1603,8 @@ class Theme_Preview_Generator {
             visibility: visible;
             right: 65px;
         }
-        #theme-preview-panel::before {
-            content: '';
-            position: absolute;
-            inset: -1px;
-            border-radius: 17px;
-            background: linear-gradient(to bottom right, rgba(255,255,255,0.5), rgba(255,255,255,0.2));
-            z-index: -1;
-        }
+       
         </style>
-        <div id="theme-preview-panel" style="
-            position: fixed;
-            top: 50%;
-            right: 20px;
-            transform: translateY(-50%);
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            z-index: 999998;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            padding: 15px;
-            border-radius: 16px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        ">
-            <button onclick="window.open('https://chat.openai.com', '_blank')" 
-                class="theme-preview-button"
-                data-tooltip="Edit with AI"
-                style="background: #10a37f !important; color: #fff !important;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 3.5V20.5M3.5 12H20.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-            </button>
-
-            <button onclick="copyThemeInfo()" 
-                class="theme-preview-button"
-                data-tooltip="Copy Theme Info">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-            </button>
-
-            <button onclick="copyEntirePage()" 
-                class="theme-preview-button"
-                data-tooltip="Copy Entire Page">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                    <path d="M14 2H6a2 2 0 0 0-2 2v14"/>
-                </svg>
-            </button>
-
-            <button onclick="toggleResponsiveView()" 
-                class="theme-preview-button"
-                data-tooltip="Toggle Mobile View">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="7" y="4" width="10" height="16" rx="2"/>
-                    <path d="M11 18H13" stroke-linecap="round"/>
-                </svg>
-            </button>
-
-            <button onclick="window.location.reload()" 
-                class="theme-preview-button"
-                data-tooltip="Refresh Preview">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
-
-            <button onclick="window.open(window.location.href, '_blank')" 
-                class="theme-preview-button"
-                data-tooltip="Open in New Tab">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
-            </button>
-
-            <button onclick="window.print()" 
-                class="theme-preview-button"
-                data-tooltip="Print Preview">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                    <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-            </button>
-        </div>
 
         <!-- Add content action buttons -->
         <style>
@@ -1432,7 +1729,12 @@ class Theme_Preview_Generator {
         document.addEventListener('DOMContentLoaded', function() {
             // Remove image action buttons code and keep only text content actions
             document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(element => {
-                if (!element.textContent.trim() || element.closest('#theme-preview-panel')) return;
+                if (!element.textContent.trim()) return;
+                if (element.hasAttribute('data-has-actions')) return;
+                if (element.closest('.content-actions')) return;
+                
+                element.setAttribute('data-has-actions', 'true');
+                element.setAttribute('data-original-content', element.textContent);
                 
                 const wrapper = document.createElement('div');
                 wrapper.style.cssText = 'position: relative;';
@@ -1446,33 +1748,90 @@ class Theme_Preview_Generator {
                     top: 50%;
                     transform: translateY(-50%);
                     right: -10px;
-                    display: none;
                     z-index: 999;
                     padding: 4px;
                     border-radius: 8px;
                     background: rgba(255,255,255,0.95);
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    display: flex;
+                    gap: 4px;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.2s ease, visibility 0.2s ease;
                 `;
                 
+                // Edit button
                 const editBtn = createActionButton('Edit', 'pencil');
-                const copyBtn = createActionButton('Copy', 'copy');
-                
                 editBtn.addEventListener('click', () => {
-                    window.open('https://chat.openai.com', '_blank');
+                    if (window.themePreviewHandler) {
+                        window.themePreviewHandler.showEditModal(element);
+                    } else {
+                        console.error('Theme Preview Handler not initialized');
+                    }
                 });
                 
+                // Copy button
+                const copyBtn = createActionButton('Copy', 'copy');
                 copyBtn.addEventListener('click', () => {
                     navigator.clipboard.writeText(element.textContent).then(() => {
                         showToast('Text copied to clipboard!');
                     });
                 });
                 
+                // Generate button
+                const generateBtn = createActionButton('Generate', 'sparkles');
+                generateBtn.addEventListener('click', () => {
+                    const tagName = element.tagName.toLowerCase();
+                    let prompt = '';
+                    
+                    switch(tagName) {
+                        case 'h1':
+                            prompt = 'Generate a catchy headline for this section';
+                            break;
+                        case 'h2':
+                        case 'h3':
+                            prompt = 'Generate a compelling subheading';
+                            break;
+                        case 'p':
+                            prompt = 'Generate engaging paragraph content';
+                            break;
+                        default:
+                            prompt = 'Generate appropriate content for this element';
+                    }
+                    
+                    if (window.themePreviewHandler) {
+                        window.themePreviewHandler.showGenerateModal(element, prompt);
+                    } else {
+                        console.error('Theme Preview Handler not initialized');
+                    }
+                });
+                
+                // View Original button
+                const viewOriginalBtn = createActionButton('Original', 'eye');
+                viewOriginalBtn.style.display = 'none';
+                viewOriginalBtn.addEventListener('click', () => {
+                    showContentComparison(element);
+                });
+                
                 actions.appendChild(editBtn);
                 actions.appendChild(copyBtn);
+                actions.appendChild(generateBtn);
+                actions.appendChild(viewOriginalBtn);
                 wrapper.appendChild(actions);
                 
-                wrapper.addEventListener('mouseenter', () => actions.style.display = 'flex');
-                wrapper.addEventListener('mouseleave', () => actions.style.display = 'none');
+                wrapper.addEventListener('mouseenter', () => {
+                    actions.style.opacity = '1';
+                    actions.style.visibility = 'visible';
+                    const originalContent = element.getAttribute('data-original-content');
+                    if (originalContent && originalContent !== element.textContent) {
+                        viewOriginalBtn.style.display = 'flex';
+                    }
+                });
+                
+                wrapper.addEventListener('mouseleave', () => {
+                    actions.style.opacity = '0';
+                    actions.style.visibility = 'hidden';
+                });
             });
 
             // Add action buttons to cover block images and buttons
@@ -1480,7 +1839,6 @@ class Theme_Preview_Generator {
                 // Handle cover block images
                 document.querySelectorAll('.wp-block-cover__image-background, .wp-image-*').forEach(element => {
                     if (element.hasAttribute('data-has-action')) return;
-                    if (element.closest('#theme-preview-panel')) return;
                     if (element.closest('.content-actions')) return;
 
                     // Create wrapper if needed
@@ -1557,23 +1915,13 @@ class Theme_Preview_Generator {
                     wrapper.appendChild(actions);
 
                     // Show/hide action buttons
-                    wrapper.addEventListener('mouseenter', () => {
-                        updateOverlayPosition();
-                        actionOverlay.style.opacity = '1';
-                        actionOverlay.style.visibility = 'visible';
-                    });
-                    wrapper.addEventListener('mouseleave', (e) => {
-                        if (!actionOverlay.contains(e.relatedTarget)) {
-                            actionOverlay.style.opacity = '0';
-                            actionOverlay.style.visibility = 'hidden';
-                        }
-                    });
+                    wrapper.addEventListener('mouseenter', () => actions.style.display = 'flex');
+                    wrapper.addEventListener('mouseleave', () => actions.style.display = 'none');
                 });
 
                 // Handle WordPress buttons
                 document.querySelectorAll('.wp-block-button__link, .wp-element-button').forEach(button => {
                     if (button.hasAttribute('data-has-action')) return;
-                    if (button.closest('#theme-preview-panel')) return;
                     if (button.closest('.content-actions')) return;
 
                     const wrapper = document.createElement('div');
@@ -1625,59 +1973,271 @@ class Theme_Preview_Generator {
                     wrapper.appendChild(actions);
 
                     // Show/hide action buttons
-                    wrapper.addEventListener('mouseenter', () => {
-                        updateOverlayPosition();
-                        actionOverlay.style.opacity = '1';
-                        actionOverlay.style.visibility = 'visible';
-                    });
-                    wrapper.addEventListener('mouseleave', (e) => {
-                        if (!actionOverlay.contains(e.relatedTarget)) {
-                            actionOverlay.style.opacity = '0';
-                            actionOverlay.style.visibility = 'hidden';
-                        }
-                    });
+                    wrapper.addEventListener('mouseenter', () => actions.style.display = 'flex');
+                    wrapper.addEventListener('mouseleave', () => actions.style.display = 'none');
                 });
             });
         });
 
-        function createActionButton(title, icon) {
+        // Function to create action buttons with proper icons
+        function createActionButton(label, icon) {
             const button = document.createElement('button');
-            button.className = 'content-action-button';
-            button.title = title;
+            button.style.cssText = `
+                border: none;
+                background: none;
+                cursor: pointer;
+                padding: 4px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                color: #666;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            `;
             
-            const icons = {
-                pencil: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>`,
-                copy: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>`,
-                upload: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>`,
-                eye: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                </svg>`,
-                link: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                </svg>`,
-                open: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>`
-            };
+            let iconSvg = '';
+            switch(icon) {
+                case 'pencil':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>`;
+                    break;
+                case 'copy':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>`;
+                    break;
+                case 'sparkles':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>`;
+                    break;
+                case 'eye':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>`;
+                    break;
+            }
             
-            button.innerHTML = icons[icon] || icons.copy; // Fallback to copy icon if undefined
+            button.innerHTML = `${iconSvg}<span style="font-size: 12px;">${label}</span>`;
+            button.title = label;
+            
+            button.addEventListener('mouseenter', () => {
+                button.style.backgroundColor = 'rgba(0,0,0,0.05)';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.backgroundColor = 'transparent';
+            });
             
             return button;
         }
+
+        // Function to show text edit modal
+        function showTextEditModal(element) {
+            const originalContent = element.getAttribute('data-original-content');
+            const currentContent = element.textContent;
+            
+            const modal = document.createElement('div');
+            modal.className = 'text-edit-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                backdrop-filter: blur(5px);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 999999;
+            `;
+            
+            const container = document.createElement('div');
+            container.style.cssText = `
+                background: white;
+                padding: 32px;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 800px;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+            `;
+            
+            const header = document.createElement('div');
+            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            header.innerHTML = `
+                <h3 style="margin: 0; color: #1e1e1e;">Edit Content</h3>
+                <button class="close-button" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+            `;
+            
+            const contentArea = document.createElement('div');
+            contentArea.style.cssText = 'display: flex; gap: 24px;';
+            
+            const originalSide = document.createElement('div');
+            originalSide.style.cssText = 'flex: 1;';
+            originalSide.innerHTML = `
+                <h4 style="margin: 0 0 8px 0; color: #666;">Original Content</h4>
+                <div style="padding: 16px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px;">${originalContent}</div>
+                <button class="restore-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Restore Original</button>
+            `;
+            
+            const editSide = document.createElement('div');
+            editSide.style.cssText = 'flex: 1;';
+            editSide.innerHTML = `
+                <h4 style="margin: 0 0 8px 0; color: #666;">Edit Content</h4>
+                <textarea style="width: 100%; min-height: 150px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font-family: inherit;">${currentContent}</textarea>
+                <div style="margin-top: 16px; display: flex; gap: 8px;">
+                    <button class="save-button" style="padding: 8px 16px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Changes</button>
+                    <button class="copy-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Copy Content</button>
+                </div>
+            `;
+            
+            contentArea.appendChild(originalSide);
+            contentArea.appendChild(editSide);
+            
+            container.appendChild(header);
+            container.appendChild(contentArea);
+            modal.appendChild(container);
+            
+            // Event listeners
+            const closeBtn = header.querySelector('.close-button');
+            const restoreBtn = originalSide.querySelector('.restore-button');
+            const saveBtn = editSide.querySelector('.save-button');
+            const copyBtn = editSide.querySelector('.copy-button');
+            const textarea = editSide.querySelector('textarea');
+            
+            closeBtn.addEventListener('click', () => modal.remove());
+            
+            restoreBtn.addEventListener('click', () => {
+                element.textContent = originalContent;
+                modal.remove();
+                showToast('Content restored to original');
+            });
+            
+            saveBtn.addEventListener('click', () => {
+                const newContent = textarea.value.trim();
+                if (newContent) {
+                    element.textContent = newContent;
+                    modal.remove();
+                    showToast('Changes saved successfully');
+                }
+            });
+            
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(textarea.value).then(() => {
+                    showToast('Content copied to clipboard');
+                });
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+            
+            document.body.appendChild(modal);
+        }
+
+        // Update the event listeners for text elements
+        document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(element => {
+            if (!element.textContent.trim()) return;
+            if (element.hasAttribute('data-has-actions')) return;
+            if (element.closest('.content-actions')) return;
+            
+            element.setAttribute('data-has-actions', 'true');
+            element.setAttribute('data-original-content', element.textContent);
+            
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `
+                position: relative;
+                display: inline-block;
+            `;
+            
+            const actions = document.createElement('div');
+            actions.style.cssText = `
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                right: -10px;
+                z-index: 999;
+                padding: 4px;
+                border-radius: 8px;
+                background: rgba(255,255,255,0.95);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                display: flex;
+                gap: 4px;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.2s ease, visibility 0.2s ease;
+            `;
+            
+            // Edit button
+            const editBtn = createActionButton('Edit', 'pencil');
+            editBtn.addEventListener('click', () => {
+                if (window.themePreviewHandler) {
+                    window.themePreviewHandler.showEditModal(element);
+                } else {
+                    console.error('Theme Preview Handler not initialized');
+                }
+            });
+            
+            // Copy button
+            const copyBtn = createActionButton('Copy', 'copy');
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(element.textContent).then(() => {
+                    showToast('Text copied to clipboard!');
+                });
+            });
+            
+            // Generate button
+            const generateBtn = createActionButton('Generate', 'sparkles');
+            generateBtn.addEventListener('click', () => {
+                const tagName = element.tagName.toLowerCase();
+                let prompt = '';
+                
+                switch(tagName) {
+                    case 'h1':
+                        prompt = 'Generate a catchy headline for this section';
+                        break;
+                    case 'h2':
+                    case 'h3':
+                        prompt = 'Generate a compelling subheading';
+                        break;
+                    case 'p':
+                        prompt = 'Generate engaging paragraph content';
+                        break;
+                    default:
+                        prompt = 'Generate appropriate content for this element';
+                }
+                
+                if (window.themePreviewHandler) {
+                    window.themePreviewHandler.showGenerateModal(element, prompt);
+                } else {
+                    console.error('Theme Preview Handler not initialized');
+                }
+            });
+            
+            actions.appendChild(editBtn);
+            actions.appendChild(copyBtn);
+            actions.appendChild(generateBtn);
+            wrapper.appendChild(actions);
+            
+            wrapper.addEventListener('mouseenter', () => {
+                actions.style.opacity = '1';
+                actions.style.visibility = 'visible';
+            });
+            
+            wrapper.addEventListener('mouseleave', () => {
+                actions.style.opacity = '0';
+                actions.style.visibility = 'hidden';
+            });
+            
+            element.parentNode.insertBefore(wrapper, element);
+            wrapper.appendChild(element);
+        });
 
         function showImagePreview(src) {
             // Create overlay
@@ -1809,8 +2369,7 @@ class Theme_Preview_Generator {
             }
 
             // Skip UI elements
-            if (element.closest('#theme-preview-panel') ||
-                element.closest('.content-actions') ||
+            if (element.closest('.content-actions') ||
                 element.closest('#wpadminbar') ||
                 element.closest('script') ||
                 element.closest('style') ||
@@ -1950,92 +2509,712 @@ class Theme_Preview_Generator {
             subtree: true
         });
 
-        function copyEntirePage() {
-            // Get the main content area
-            const mainContent = document.querySelector('main') || document.querySelector('.site-main') || document.querySelector('#main');
-            
-            if (!mainContent) {
-                showToast('Could not find main content area');
-                return;
+        window.copyEntirePage = function() {
+           
+        };
+
+        // Also make sure showToast is globally available
+        window.showToast = function(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #333;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 4px;
+                z-index: 999999;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.3s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        };
+
+        // Add local storage management functions
+        function initLocalStorage() {
+            // Generate or retrieve user ID
+            let userId = localStorage.getItem('theme_preview_user_id');
+            if (!userId) {
+                userId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                localStorage.setItem('theme_preview_user_id', userId);
             }
 
-            // Clone the content to avoid modifying the original
-            const contentClone = mainContent.cloneNode(true);
+            // Initialize images storage if not exists
+            if (!localStorage.getItem('theme_preview_images')) {
+                localStorage.setItem('theme_preview_images', JSON.stringify({}));
+            }
 
-            // Remove all action buttons and UI elements
-            contentClone.querySelectorAll('.section-copy-button, .content-actions, .action-overlay, #theme-preview-panel').forEach(el => el.remove());
+            // Create theme assets directory if not exists
+            const themeName = document.body.getAttribute('data-theme-name') || 'default';
+            const assetsPath = `wp-content/themes/${themeName}/assets/images/${userId}`;
+            
+            // Store the paths in localStorage for future use
+            localStorage.setItem('theme_preview_paths', JSON.stringify({
+                themeName: themeName,
+                assetsPath: assetsPath,
+                userId: userId
+            }));
 
-            // Get all styles that apply to the content
-            const styles = Array.from(document.styleSheets)
-                .filter(sheet => {
-                    try {
-                        // Filter out external stylesheets and theme preview styles
-                        return !sheet.href || (sheet.href && !sheet.href.includes('theme-preview-generator'));
-                    } catch (e) {
-                        return false;
+            return userId;
+        }
+
+        function saveImageToTheme(file, imageElement) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                const paths = JSON.parse(localStorage.getItem('theme_preview_paths'));
+                const imageId = 'img_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                
+                formData.append('action', 'save_preview_image');
+                formData.append('image', file);
+                formData.append('user_id', paths.userId);
+                formData.append('image_id', imageId);
+                formData.append('theme_name', paths.themeName);
+                formData.append('original_src', imageElement.getAttribute('data-original-src') || imageElement.src);
+                formData.append('nonce', wpApiSettings.nonce);
+
+                fetch(wpApiSettings.ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        resolve({
+                            id: imageId,
+                            path: data.data.path,
+                            url: data.data.url,
+                            originalSrc: imageElement.getAttribute('data-original-src') || imageElement.src
+                        });
+                    } else {
+                        reject(new Error(data.data.message));
                     }
                 })
-                .map(sheet => {
-                    try {
-                        return Array.from(sheet.cssRules)
-                            .filter(rule => {
-                                // Filter out theme preview specific styles
-                                return !rule.selectorText || (
-                                    !rule.selectorText.includes('theme-preview') &&
-                                    !rule.selectorText.includes('content-action') &&
-                                    !rule.selectorText.includes('section-copy')
-                                );
-                            })
-                            .map(rule => rule.cssText)
-                            .join('\n');
-                    } catch (e) {
-                        return '';
-                    }
-                })
-                .join('\n');
-
-            // Create the final content with WordPress structure
-            const fullContent = `
-<!-- wp:html -->
-<style>
-${styles}
-</style>
-${contentClone.outerHTML}
-<!-- /wp:html -->`;
-
-            // Copy to clipboard
-            navigator.clipboard.writeText(fullContent).then(() => {
-                showToast('Entire page copied to clipboard!');
-            }).catch(err => {
-                showToast('Failed to copy page content');
-                console.error('Failed to copy:', err);
+                .catch(reject);
             });
+        }
+
+        function handleImageUpload(file, imageElement) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // Initialize storage
+                    const userId = initLocalStorage();
+                    
+                    // Save image to theme directory
+                    const imageData = await saveImageToTheme(file, imageElement);
+                    
+                    // Store image info in localStorage
+                    const imagesStorage = JSON.parse(localStorage.getItem('theme_preview_images') || '{}');
+                    
+                    // Get existing image ID if this image was replaced before
+                    const existingImageId = imageElement.getAttribute('data-preview-image-id');
+                    const imageId = existingImageId || imageData.id;
+                    
+                    // Update image data
+                    imagesStorage[imageId] = {
+                        id: imageId,
+                        userId: userId,
+                        path: imageData.path,
+                        url: imageData.url,
+                        originalSrc: imageData.originalSrc,
+                        timestamp: Date.now(),
+                        elementSelector: generateUniqueSelector(imageElement),
+                        history: [
+                            ...(imagesStorage[imageId]?.history || []),
+                            {
+                                timestamp: Date.now(),
+                                path: imageData.path,
+                                url: imageData.url
+                            }
+                        ]
+                    };
+                    
+                    // Update storage
+                    localStorage.setItem('theme_preview_images', JSON.stringify(imagesStorage));
+                    
+                    // Update image element
+                    imageElement.src = imageData.url;
+                    imageElement.setAttribute('data-preview-image-id', imageId);
+                    if (!imageElement.hasAttribute('data-original-src')) {
+                        imageElement.setAttribute('data-original-src', imageData.originalSrc);
+                    }
+                    imageElement.setAttribute('data-is-replaced', 'true');
+                    
+                    // Add/update replaced indicator
+                    addReplacedImageIndicator(imageElement);
+                    
+                    // Show success message
+                    showToast('Image replaced successfully!');
+                    
+                    resolve(imageData);
+                } catch (error) {
+                    console.error('Error handling image upload:', error);
+                    showToast('Error uploading image. Please try again.');
+                    reject(error);
+                }
+            });
+        }
+
+        // Add PHP handler for image uploads
+        add_action('wp_ajax_save_preview_image', 'handle_preview_image_upload');
+        add_action('wp_ajax_nopriv_save_preview_image', 'handle_preview_image_upload');
+
+        public function handle_preview_image_upload() {
+            try {
+                // Enable error reporting for debugging
+                error_reporting(E_ALL);
+                ini_set('display_errors', 1);
+
+                // Debug log
+                error_log('Image upload request received');
+                error_log('POST data: ' . print_r($_POST, true));
+                error_log('FILES data: ' . print_r($_FILES, true));
+
+                if (!check_ajax_referer('wp_rest', 'nonce', false)) {
+                    error_log('Nonce verification failed');
+                    wp_send_json_error(array('message' => 'Security check failed'));
+                    return;
+                }
+
+                // Check if file was uploaded
+                if (empty($_FILES['image'])) {
+                    error_log('No image file received');
+                    wp_send_json_error(array('message' => 'No image provided'));
+                    return;
+                }
+
+                // Get and sanitize parameters
+                $user_id = sanitize_text_field($_POST['user_id'] ?? '');
+                $theme_name = sanitize_text_field($_POST['theme_name'] ?? '');
+
+                if (empty($user_id) || empty($theme_name)) {
+                    error_log('Missing required parameters');
+                    wp_send_json_error(array('message' => 'Missing required parameters'));
+                    return;
+                }
+
+                // Create upload directory path
+                $upload_base = wp_upload_dir();
+                $theme_dir = WP_CONTENT_DIR . "/themes/$theme_name";
+                $upload_dir = "$theme_dir/assets/images/$user_id";
+                
+                error_log("Upload directory path: $upload_dir");
+
+                // Create directories recursively if they don't exist
+                if (!file_exists($upload_dir)) {
+                    if (!wp_mkdir_p($upload_dir)) {
+                        $error = error_get_last();
+                        error_log("Failed to create directory: $upload_dir. Error: " . print_r($error, true));
+                        wp_send_json_error(array('message' => 'Failed to create upload directory'));
+                        return;
+                    }
+                    // Set directory permissions
+                    chmod($upload_dir, 0755);
+                }
+                    
+                // Process the uploaded file
+                $file = $_FILES['image'];
+                $filename = sanitize_file_name($file['name']);
+                $filepath = "$upload_dir/$filename";
+
+                // Validate file type
+                $allowed_types = array('image/jpeg', 'image/png', 'image/gif', 'image/webp');
+                if (!in_array($file['type'], $allowed_types)) {
+                    error_log("Invalid file type: {$file['type']}");
+                    wp_send_json_error(array('message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'));
+                    return;
+                }
+                
+                // Check file size
+                $max_size = wp_max_upload_size();
+                if ($file['size'] > $max_size) {
+                    error_log("File too large: {$file['size']} bytes (max: $max_size bytes)");
+                    wp_send_json_error(array('message' => 'File is too large'));
+                    return;
+                }
+
+                // Move uploaded file
+                if (!is_writable($upload_dir)) {
+                    error_log("Directory not writable: $upload_dir");
+                    wp_send_json_error(array('message' => 'Upload directory is not writable'));
+                    return;
+                }
+
+                if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                    // Set proper file permissions
+                    chmod($filepath, 0644);
+                    
+                    // Generate URL for the uploaded file
+                    $site_url = site_url();
+                    $theme_url = content_url("themes/$theme_name");
+                    $file_url = "$theme_url/assets/images/$user_id/$filename";
+                    
+                    error_log("File uploaded successfully to: $filepath");
+                    error_log("File URL: $file_url");
+
+                    // Return success response
+                    wp_send_json_success(array(
+                        'path' => $filepath,
+                        'url' => $file_url,
+                        'message' => 'Image uploaded successfully'
+                    ));
+                } else {
+                    $error = error_get_last();
+                    error_log("Failed to move uploaded file to: $filepath. Error: " . print_r($error, true));
+                    wp_send_json_error(array('message' => 'Failed to save image'));
+                }
+            } catch (Exception $e) {
+                error_log("Exception in image upload: " . $e->getMessage());
+                wp_send_json_error(array('message' => 'Server error: ' . $e->getMessage()));
+            }
+        }
+
+        // Add recovery function to load images on page load
+        function recoverStoredImages() {
+            const userId = initLocalStorage();
+            const imagesStorage = JSON.parse(localStorage.getItem('theme_preview_images') || '{}');
+            
+            document.querySelectorAll('img').forEach(img => {
+                const imageId = img.getAttribute('data-preview-image-id');
+                if (imageId && imagesStorage[imageId]) {
+                    const imageData = imagesStorage[imageId];
+                    
+                    // Only recover images for current user
+                    if (imageData.userId === userId) {
+                        // Store original source if not already stored
+                        if (!img.hasAttribute('data-original-src')) {
+                            img.setAttribute('data-original-src', img.src);
+                        }
+                        
+                        // Use the latest image from history
+                        const latestImage = imageData.history[imageData.history.length - 1];
+                        img.src = latestImage.url;
+                        img.setAttribute('data-is-replaced', 'true');
+                        
+                        // Add replaced indicator
+                        addReplacedImageIndicator(img);
+                    }
+                }
+            });
+        }
+
+        // Call recovery function when DOM is loaded
+        document.addEventListener('DOMContentLoaded', recoverStoredImages);
+
+        function createFileInput(imageElement) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.style.display = 'none';
+            
+            fileInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    await handleImageUpload(file, imageElement);
+                }
+            });
+            
+            return fileInput;
+        }
+
+        function addReplacedImageIndicator(imageElement) {
+            // Remove existing indicator if any
+            const existingIndicator = imageElement.parentElement.querySelector('.image-replaced-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+
+            // Create indicator container
+            const indicator = document.createElement('div');
+            indicator.className = 'image-replaced-indicator';
+            indicator.style.cssText = `
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: rgba(255, 255, 255, 0.9);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                color: #1e1e1e;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.2s ease, visibility 0.2s ease;
+            `;
+
+            // Add icon and text
+            indicator.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Replaced Image</span>
+            `;
+
+            // Create buttons container
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.style.cssText = `
+                display: flex;
+                gap: 8px;
+                margin-left: 8px;
+            `;
+
+            // Add view original button
+            const viewOriginalBtn = document.createElement('button');
+            viewOriginalBtn.style.cssText = `
+                background: none;
+                border: none;
+                padding: 0;
+                margin: 0;
+                cursor: pointer;
+                color: #2271b1;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            `;
+            viewOriginalBtn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+                View Original
+            `;
+            
+            viewOriginalBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const originalSrc = imageElement.getAttribute('data-original-src');
+                if (originalSrc) {
+                    showImageComparison(originalSrc, imageElement.src);
+                }
+            });
+            
+            indicator.appendChild(viewOriginalBtn);
+            
+            // Add replace button
+            const replaceBtn = document.createElement('button');
+            replaceBtn.style.cssText = `
+                background: none;
+                border: none;
+                padding: 0;
+                margin: 0;
+                cursor: pointer;
+                color: #2271b1;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            `;
+            replaceBtn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Replace
+            `;
+
+            // Create file input for this specific image
+            const fileInput = createFileInput(imageElement);
+            replaceBtn.appendChild(fileInput);
+            
+            replaceBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fileInput.click();
+            });
+
+            // Add buttons to container
+            buttonsContainer.appendChild(viewOriginalBtn);
+            buttonsContainer.appendChild(replaceBtn);
+            indicator.appendChild(buttonsContainer);
+
+            // Add to image container
+            const container = imageElement.parentElement;
+            container.style.position = 'relative';
+            container.appendChild(indicator);
+
+            // Show/hide indicator on hover
+            container.addEventListener('mouseenter', () => {
+                indicator.style.opacity = '1';
+                indicator.style.visibility = 'visible';
+            });
+            container.addEventListener('mouseleave', () => {
+                indicator.style.opacity = '0';
+                indicator.style.visibility = 'hidden';
+            });
+        }
+
+        function showImageComparison(originalSrc, newSrc) {
+            // Create comparison modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 999999;
+            `;
+
+            // Create comparison container
+            const container = document.createElement('div');
+            container.style.cssText = `
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                max-width: 90%;
+                max-height: 90%;
+                overflow: auto;
+                display: flex;
+                gap: 20px;
+            `;
+
+            // Create image containers
+            const createImageContainer = (src, label) => {
+                const div = document.createElement('div');
+                div.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                `;
+                
+                const img = document.createElement('img');
+                img.src = src;
+                img.style.maxWidth = '400px';
+                img.style.height = 'auto';
+                
+                const text = document.createElement('div');
+                text.textContent = label;
+                text.style.fontWeight = 'bold';
+                
+                div.appendChild(text);
+                div.appendChild(img);
+                return div;
+            };
+
+            container.appendChild(createImageContainer(originalSrc, 'Original Image'));
+            container.appendChild(createImageContainer(newSrc, 'Replaced Image'));
+
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: white;
+                border: none;
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                font-size: 20px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            closeBtn.onclick = () => modal.remove();
+
+            modal.appendChild(container);
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
+
+            // Close on background click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+
+        // Add image recovery on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize local storage
+            const userId = initLocalStorage();
+            
+            // Recover stored images
+            const images = document.querySelectorAll('img');
+            images.forEach(img => {
+                const imageId = img.getAttribute('data-preview-image-id');
+                if (imageId) {
+                    const imageData = getImageFromLocalStorage(imageId);
+                    if (imageData && imageData.userId === userId) {
+                        // Store original source if not already stored
+                        if (!img.hasAttribute('data-original-src')) {
+                            img.setAttribute('data-original-src', img.src);
+                        }
+                        
+                        // Update with stored image
+                        img.src = imageData.dataUrl;
+                        img.setAttribute('data-is-replaced', 'true');
+                        
+                        // Add replaced indicator
+                        addReplacedImageIndicator(img);
+                    }
+                }
+            });
+            
+            // Log stored images for debugging
+            // console.log('User ID:', userId);
+            // console.log('Stored Images:', getAllUserImages(userId));
+        });
+
+        // Add styles for replaced image indicators
+        const style = document.createElement('style');
+        style.textContent = `
+            .image-replaced-indicator {
+                opacity: 0;
+                visibility: hidden;
+            }
+            
+            *:hover > .image-replaced-indicator {
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            
+            .image-replaced-indicator button:hover {
+                text-decoration: underline;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Add AJAX handler for getting Cloudinary credentials
+        add_action('wp_ajax_get_cloudinary_credentials', array($this, 'handle_get_cloudinary_credentials'));
+        add_action('wp_ajax_nopriv_get_cloudinary_credentials', array($this, 'handle_get_cloudinary_credentials'));
+
+        public function handle_get_cloudinary_credentials() {
+            try {
+                // Verify nonce
+                if (!check_ajax_referer('wp_rest', 'nonce', false)) {
+                    wp_send_json_error(array(
+                        'message' => 'Invalid security token'
+                    ), 403);
+                    return;
+                }
+
+                // Get Cloudinary settings
+                $cloud_name = $this->get_setting('cloudinary_cloud_name');
+                $api_key = $this->get_setting('cloudinary_api_key');
+                $api_secret = $this->get_setting('cloudinary_api_secret');
+
+                if (empty($cloud_name) || empty($api_key) || empty($api_secret)) {
+                    wp_send_json_error(array(
+                        'message' => 'Cloudinary credentials not configured'
+                    ), 400);
+                    return;
+                }
+
+                // Generate unsigned upload preset parameters
+                $timestamp = time();
+                $upload_preset = 'theme_preview_preset'; // Your unsigned upload preset name
+
+                wp_send_json_success(array(
+                    'cloudName' => $cloud_name,
+                    'uploadPreset' => $upload_preset
+                ));
+
+            } catch (Exception $e) {
+                wp_send_json_error(array(
+                    'message' => 'Server error: ' . $e->getMessage()
+                ), 500);
+            }
+        }
+
+        // Function to show content comparison modal
+        function showContentComparison(element) {
+            const originalContent = element.getAttribute('data-original-content');
+            const currentContent = element.textContent;
+            
+            const modal = document.createElement('div');
+            modal.className = 'content-comparison-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 999999;
+            `;
+            
+            const container = document.createElement('div');
+            container.style.cssText = `
+                background: white;
+                padding: 32px;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 800px;
+                position: relative;
+                display: flex;
+                gap: 24px;
+            `;
+            
+            const originalSide = document.createElement('div');
+            originalSide.style.cssText = 'flex: 1; padding: 16px;';
+            originalSide.innerHTML = `
+                <h3 style="margin: 0 0 16px 0; color: #666;">Original Content</h3>
+                <div style="padding: 16px; background: #f5f5f5; border-radius: 8px;">${originalContent}</div>
+                <button class="restore-button" style="margin-top: 16px;">Restore Original</button>
+            `;
+            
+            const currentSide = document.createElement('div');
+            currentSide.style.cssText = 'flex: 1; padding: 16px;';
+            currentSide.innerHTML = `
+                <h3 style="margin: 0 0 16px 0; color: #666;">Current Content</h3>
+                <div style="padding: 16px; background: #f5f5f5; border-radius: 8px;">${currentContent}</div>
+            `;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #666;
+            `;
+            
+            originalSide.querySelector('.restore-button').addEventListener('click', () => {
+                element.textContent = originalContent;
+                modal.remove();
+                showToast('Content restored to original');
+            });
+            
+            closeBtn.addEventListener('click', () => modal.remove());
+            
+            container.appendChild(originalSide);
+            container.appendChild(currentSide);
+            container.appendChild(closeBtn);
+            modal.appendChild(container);
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+            
+            document.body.appendChild(modal);
         }
         </script>
         <?php
-    }
-
-    public function add_passive_listeners() {
-        ?>
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.addEventListener('touchstart', function(){}, {passive: true});
-            document.addEventListener('touchmove', function(){}, {passive: true});
-        });
-        </script>
-        <?php
-    }
-
-    public function add_admin_menu() {
-        add_menu_page(
-            __('Theme Preview Generator', 'theme-preview-generator'),
-            __('Theme Preview', 'theme-preview-generator'),
-            'manage_options',
-            'theme-preview-generator',
-            array($this, 'render_admin_page'),
-            'dashicons-visibility',
-            65
-        );
     }
 
     public function render_admin_page() {
@@ -2348,7 +3527,6 @@ ${contentClone.outerHTML}
             ].join(',');
 
             document.querySelectorAll(mainSectionSelectors).forEach(function(section) {
-                if (section.closest('#theme-preview-panel')) return;
                 if (section.querySelector('.section-copy-button')) return; // Skip if already has copy button
                 if (section.closest('[data-copyable]')) return; // Skip if parent is already copyable
                 
@@ -2379,86 +3557,6 @@ ${contentClone.outerHTML}
                 });
                 
                 section.appendChild(button);
-
-                const image = section.querySelector('img');
-                if (image && section.querySelectorAll('img').length === 1) {
-                    console.log('Found section with single image:', {
-                        section: section,
-                        imageSource: image.src
-                    });
-
-                    // Add only replace image button
-                    const replaceBtn = document.createElement('button');
-                    replaceBtn.className = 'section-copy-button';
-                    replaceBtn.title = 'Replace Image';
-                    replaceBtn.style.cssText = `
-                        position: absolute !important;
-                        top: 10px !important;
-                        left: 10px !important;
-                        background: white !important;
-                        border: none !important;
-                        border-radius: 6px !important;
-                        padding: 6px !important;
-                        width: 28px !important;
-                        height: 28px !important;
-                        min-width: 28px !important;
-                        min-height: 28px !important;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-                        cursor: pointer !important;
-                        z-index: 999999 !important;
-                        transition: all 0.2s ease !important;
-                        opacity: 0 !important;
-                        visibility: hidden !important;
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                    `;
-                    replaceBtn.innerHTML = `
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                    `;
-
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = 'image/*';
-                    fileInput.style.display = 'none';
-                    replaceBtn.appendChild(fileInput);
-
-                    fileInput.addEventListener('change', function(e) {
-                        const file = e.target.files[0];
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                image.src = e.target.result;
-                                showToast('Image replaced successfully!');
-                            };
-                            reader.readAsDataURL(file);
-                        }
-                    });
-
-                    replaceBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        fileInput.click();
-                    });
-
-                    section.appendChild(replaceBtn);
-
-                    // Show/hide replace button on hover
-                    section.addEventListener('mouseenter', () => {
-                        replaceBtn.style.opacity = '1';
-                        replaceBtn.style.visibility = 'visible';
-                    });
-                    
-                    section.addEventListener('mouseleave', () => {
-                        replaceBtn.style.opacity = '0';
-                        replaceBtn.style.visibility = 'hidden';
-                    });
-
-                    console.log('Added replace image button');
-                }
             });
 
            
@@ -2475,45 +3573,12 @@ ${contentClone.outerHTML}
             `);
 
             // Debug info
-            console.log('Total elements found:', contentElements.length);
+            // console.log('Total elements found:', contentElements.length);
 
             // Keep track of elements that already have buttons
             const processedElements = new Set();
 
             contentElements.forEach(element => {
-                // Debug each element
-                console.log('Processing element:', {
-                    tag: element.tagName,
-                    classes: element.className,
-                    href: element.href || element.closest('a')?.href,
-                    text: element.textContent.trim(),
-                    hasBackground: window.getComputedStyle(element).backgroundImage !== 'none',
-                    rect: element.getBoundingClientRect()
-                });
-
-                // Skip if already processed
-                if (processedElements.has(element)) {
-                    console.log('Skipping: already processed');
-                    return;
-                }
-                
-                // Skip empty elements and UI elements
-                if (!element.textContent.trim()) {
-                    console.log('Skipping: empty text');
-                    return;
-                }
-                if (element.closest('#theme-preview-panel')) {
-                    console.log('Skipping: in preview panel');
-                    return;
-                }
-                if (element.closest('.content-actions')) {
-                    console.log('Skipping: in content actions');
-                    return;
-                }
-                if (element.closest('#wpadminbar')) {
-                    console.log('Skipping: in admin bar');
-                    return;
-                }
 
                 // Skip admin/system links
                 const href = element.href;
@@ -2562,7 +3627,6 @@ ${contentClone.outerHTML}
                     if (element.hasAttribute('data-has-action')) return;
                     
                     // Skip UI elements
-                    if (element.closest('#theme-preview-panel')) return;
                     if (element.closest('.content-actions')) return;
                     if (element.closest('#wpadminbar')) return;
                     if (element.closest('script')) return;

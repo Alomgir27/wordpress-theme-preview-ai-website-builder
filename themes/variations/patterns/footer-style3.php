@@ -33,7 +33,7 @@
 
 <!-- wp:paragraph {"align":"center","style":{"elements":{"link":{"color":{"text":"#345c01"}}},"typography":{"fontStyle":"normal","fontWeight":"500","fontSize":"1.01rem"},"color":{"text":"#345c01"}}} -->
 <p class="has-text-align-center has-text-color has-link-color" style="color:#345c01;font-size:1.01rem;font-style:normal;font-weight:500"><?php printf(
-	esc_html__( '© Copyright 2024 | Variations by %s', 'variations' ),
+	esc_html__( '© Copyright 2025 | Variations by %s', 'variations' ),
 	'<a href="' . esc_url( __( 'https://tyler.com/', 'variations' ) ) . '" rel="nofollow" data-type="link" data-id="' . esc_url( __( 'https://tyler.com/', 'variations' ) ) . '">Tyler Moore</a>'
 ); ?></p>
 <!-- /wp:paragraph -->

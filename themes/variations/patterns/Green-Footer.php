@@ -15,7 +15,7 @@
 <div class="wp-block-column is-vertically-aligned-center" style="flex-basis:58%"><!-- wp:site-title {"level":2,"style":{"typography":{"fontSize":"2.31rem","lineHeight":"1.5","fontStyle":"normal","fontWeight":"900","textTransform":"none"},"color":{"text":"#fffffd"}}} /-->
 
 <!-- wp:paragraph {"style":{"elements":{"link":{"color":{"text":"#fffffd"},":hover":{"color":{"text":"#fffffd"}}}},"typography":{"fontSize":"0.9rem","lineHeight":"1.5","fontStyle":"normal","fontWeight":"400"},"color":{"text":"#fffffd"},"spacing":{"margin":{"top":"0px"}}}} -->
-<p class="has-text-color has-link-color" style="color:#fffffd;margin-top:0px;font-size:0.9rem;font-style:normal;font-weight:400;line-height:1.5">© 2024 by Green Farming. All Rights Reserved.</p>
+<p class="has-text-color has-link-color" style="color:#fffffd;margin-top:0px;font-size:0.9rem;font-style:normal;font-weight:400;line-height:1.5">© 2025 by Green Farming. All Rights Reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column -->
 

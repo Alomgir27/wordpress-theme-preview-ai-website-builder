@@ -21,7 +21,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"16px","lineHeight":1.6},"color":{"text":"#000000"}}} -->
-<p class="has-text-color" style="color:#000000;font-size:16px;line-height:1.6">© 2024 River –  All Rights Reserved.</p>
+<p class="has-text-color" style="color:#000000;font-size:16px;line-height:1.6">© 2025 River –  All Rights Reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column -->
 

@@ -1,0 +1,71 @@
+<!-- wp:template-part {"slug":"header-archive","theme":"saaslauncher","area":"header","className":"saaslauncher-cart-button"} /-->
+
+<!-- wp:group {"tagName":"main","className":"saaslauncher-cart-button","style":{"spacing":{"margin":{"top":"10px","bottom":"0","left":"0","right":"0"}}},"backgroundColor":"background-alt","textColor":"light-color","fontSize":"small","layout":{"inherit":true,"type":"constrained","contentSize":"100%"}} -->
+<main class="wp-block-group saaslauncher-cart-button has-light-color-color has-background-alt-background-color has-text-color has-background has-small-font-size" style="margin-top: 10px; margin-right: 0; margin-bottom: 0; margin-left: 0">
+  <!-- wp:group {"style":{"spacing":{"padding":{"right":"var:preset|spacing|40","left":"var:preset|spacing|40"}}},"layout":{"type":"constrained","contentSize":"1180px"}} -->
+  <div class="wp-block-group" style="padding-right: var(--wp--preset--spacing--40); padding-left: var(--wp--preset--spacing--40)">
+    <!-- wp:woocommerce/breadcrumbs {"textColor":"foreground-alt","style":{"elements":{"link":{"color":{"text":"var:preset|color|foreground-alt"}}}}} /-->
+
+    <!-- wp:woocommerce/store-notices /-->
+
+    <!-- wp:group {"className":"saaslauncher-cart-button","style":{"spacing":{"margin":{"top":"10px","bottom":"0","left":"0","right":"0"}}},"textColor":"light-color","fontSize":"small","layout":{"type":"flex","flexWrap":"nowrap","justifyContent":"space-between"}} -->
+    <div class="wp-block-group saaslauncher-cart-button has-light-color-color has-text-color has-small-font-size" style="margin-top: 10px; margin-right: 0; margin-bottom: 0; margin-left: 0">
+      <!-- wp:woocommerce/product-results-count {"textColor":"foreground-alt","style":{"elements":{"link":{"color":{"text":"var:preset|color|foreground-alt"}}}}} /-->
+
+      <!-- wp:woocommerce/catalog-sorting {"fontSize":"normal","textColor":"heading-color","style":{"elements":{"link":{"color":{"text":"var:preset|color|heading-color"}}},"layout":{"selfStretch":"fit","flexSize":null}}} /-->
+    </div>
+    <!-- /wp:group -->
+
+    <!-- wp:query {"queryId":3,"query":{"perPage":"9","pages":0,"offset":0,"postType":"product","order":"desc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false,"__woocommerceAttributes":[],"__woocommerceStockStatus":["instock","outofstock","onbackorder"]},"namespace":"woocommerce/product-query","className":"saaslauncher-cart-button"} -->
+    <div class="wp-block-query saaslauncher-cart-button">
+      <!-- wp:post-template {"className":"products-block-post-template","style":{"spacing":{"blockGap":"32px"},"elements":{"link":{"color":{"text":"var:preset|color|light-color"}}}},"textColor":"light-color","layout":{"type":"grid","columnCount":3},"__woocommerceNamespace":"woocommerce/product-query/product-template"} -->
+      <!-- wp:group {"className":"saaslauncher-product-box","style":{"spacing":{"blockGap":"0"}},"layout":{"type":"constrained"}} -->
+      <div class="wp-block-group saaslauncher-product-box">
+        <!-- wp:group {"className":"saaslauncher-product-image","style":{"spacing":{"margin":{"bottom":"14px"}}},"layout":{"type":"constrained"}} -->
+        <div class="wp-block-group saaslauncher-product-image" style="margin-bottom: 14px">
+          <!-- wp:woocommerce/product-image {"saleBadgeAlign":"left","imageSizing":"thumbnail","isDescendentOfQueryLoop":true,"height":"380px","style":{"border":{"radius":"0px"}}} /-->
+
+          <!-- wp:columns {"className":"saaslauncher-product-buttons","style":{"spacing":{"blockGap":{"left":"1px"}}}} -->
+          <div class="wp-block-columns saaslauncher-product-buttons">
+            <!-- wp:column -->
+            <div class="wp-block-column">
+              <!-- wp:woocommerce/product-button {"textAlign":"center","width":100,"isDescendentOfQueryLoop":true,"className":"saaslauncher-cart-button","textColor":"light-color","fontSize":"small","style":{"elements":{"link":{"color":{"text":"var:preset|color|light-color"},":hover":{"color":{"text":"var:preset|color|primary"}}}},"spacing":{"margin":{"top":"0","bottom":"0"}}}} /-->
+            </div>
+            <!-- /wp:column -->
+          </div>
+          <!-- /wp:columns -->
+        </div>
+        <!-- /wp:group -->
+
+        <!-- wp:post-terms {"term":"product_cat","textAlign":"center","style":{"elements":{"link":{"color":{"text":"var:preset|color|meta-color"},":hover":{"color":{"text":"var:preset|color|secondary"}}}},"typography":{"fontStyle":"normal","fontWeight":"500"},"spacing":{"margin":{"top":"0","bottom":"0"}}},"fontSize":"x-small"} /-->
+
+        <!-- wp:post-title {"textAlign":"center","level":3,"isLink":true,"style":{"spacing":{"margin":{"top":"4px","left":"0","right":"0","bottom":"0px"}},"elements":{"link":{"color":{"text":"var:preset|color|light-color"},":hover":{"color":{"text":"var:preset|color|secondary"}}}},"typography":{"fontSize":"18px"}},"__woocommerceNamespace":"woocommerce/product-query/product-title"} /-->
+
+        <!-- wp:woocommerce/product-rating {"isDescendentOfQueryLoop":true,"textAlign":"center","style":{"spacing":{"margin":{"top":"3px","bottom":"0px","left":"0","right":"0"}}}} /-->
+
+        <!-- wp:woocommerce/product-price {"isDescendentOfQueryLoop":true,"textAlign":"center","style":{"spacing":{"margin":{"top":"10px","bottom":"0","left":"0","right":"0"}}}} /-->
+      </div>
+      <!-- /wp:group -->
+      <!-- /wp:post-template -->
+
+      <!-- wp:query-pagination {"layout":{"type":"flex","justifyContent":"center"}} -->
+      <!-- wp:query-pagination-previous /-->
+
+      <!-- wp:query-pagination-numbers /-->
+
+      <!-- wp:query-pagination-next /-->
+      <!-- /wp:query-pagination -->
+
+      <!-- wp:query-no-results -->
+      <!-- wp:paragraph {"placeholder":"Add text or blocks that will display when a query returns no results."} -->
+      <p></p>
+      <!-- /wp:paragraph -->
+      <!-- /wp:query-no-results -->
+    </div>
+    <!-- /wp:query -->
+  </div>
+  <!-- /wp:group -->
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","theme":"saaslauncher","className":"saaslauncher-cart-button"} /-->

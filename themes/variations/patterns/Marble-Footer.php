@@ -71,6 +71,6 @@
 <!-- /wp:separator -->
 
 <!-- wp:paragraph {"align":"center","style":{"color":{"text":"#ededed"},"typography":{"fontSize":"18px","lineHeight":1.6}}} -->
-<p class="has-text-align-center has-text-color" style="color:#ededed;font-size:18px;line-height:1.6">© Copyright 2024 All Right Reserved</p>
+<p class="has-text-align-center has-text-color" style="color:#ededed;font-size:18px;line-height:1.6">© Copyright 2025 All Right Reserved</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group -->

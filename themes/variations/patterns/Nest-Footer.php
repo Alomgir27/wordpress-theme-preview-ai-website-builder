@@ -21,7 +21,7 @@
 
 <!-- wp:column {"verticalAlignment":"center","width":"40%","style":{"color":{"text":"#fffffd"}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-column is-vertically-aligned-center has-text-color" style="color:#fffffd;flex-basis:40%"><!-- wp:paragraph {"align":"left","style":{"elements":{"link":{"color":{"text":"#fffffd"},":hover":{"color":{"text":"#fffffd"}}}},"typography":{"fontSize":"0.9rem","lineHeight":"1.5","fontStyle":"normal","fontWeight":"400"},"color":{"text":"#fffffd"}}} -->
-<p class="has-text-align-left has-text-color has-link-color" style="color:#fffffd;font-size:0.9rem;font-style:normal;font-weight:400;line-height:1.5">© 2024 Nest - Theme by Tyler. All rights reserved.</p>
+<p class="has-text-align-left has-text-color has-link-color" style="color:#fffffd;font-size:0.9rem;font-style:normal;font-weight:400;line-height:1.5">© 2025 Nest - Theme by Tyler. All rights reserved.</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:column --></div>
 <!-- /wp:columns --></div>
