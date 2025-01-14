@@ -16,7 +16,7 @@ class Theme_Preview_OpenAI_Handler {
     private $cache_expiration = 24 * HOUR_IN_SECONDS;
 
     public function __construct() {
-        $settings = get_option('theme_preview_settings', array());
+        $settings = get_option('theme_preview_generator_settings', array());
         $this->api_key = $settings['openai_api_key'] ?? '';
     }
 

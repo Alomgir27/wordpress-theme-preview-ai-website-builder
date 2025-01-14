@@ -141,3 +141,32 @@ Stack trace:
 #3 {main}
   thrown in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php on line 324
 [14-Jan-2025 15:15:55 UTC] PHP Parse error:  syntax error, unexpected token ";", expecting "function" or "const" in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 1275
+[14-Jan-2025 19:11:55 UTC] Automatic updates starting...
+[14-Jan-2025 19:11:57 UTC] Automatic updates complete.
+[14-Jan-2025 20:27:46 UTC] PHP Fatal error:  Uncaught TypeError: call_user_func_array(): Argument #1 ($callback) must be a valid callback, class Theme_Preview_Generator does not have a method "render_preview_bar" in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php:324
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#1 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3080): do_action('wp_footer')
+#3 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(25): wp_footer()
+#4 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#5 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#6 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#7 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php on line 324
+[14-Jan-2025 20:35:31 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Theme_Preview_Generator::is_preview_page() in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php:185
+Stack trace:
+#0 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): Theme_Preview_Generator->enqueue_scripts('')
+#1 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#2 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 C:\xampp\htdocs\wordpress\wp-includes\script-loader.php(2272): do_action('wp_enqueue_scri...')
+#4 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(324): wp_enqueue_scripts('')
+#5 C:\xampp\htdocs\wordpress\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters(NULL, Array)
+#6 C:\xampp\htdocs\wordpress\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#7 C:\xampp\htdocs\wordpress\wp-includes\general-template.php(3064): do_action('wp_head')
+#8 C:\xampp\htdocs\wordpress\wp-includes\template-canvas.php(17): wp_head()
+#9 C:\xampp\htdocs\wordpress\wp-includes\template-loader.php(106): include('C:\\xampp\\htdocs...')
+#10 C:\xampp\htdocs\wordpress\wp-blog-header.php(19): require_once('C:\\xampp\\htdocs...')
+#11 C:\xampp\htdocs\wordpress\index.php(17): require('C:\\xampp\\htdocs...')
+#12 {main}
+  thrown in C:\xampp\htdocs\wordpress\wp-content\plugins\theme-preview-generator\theme-preview-generator.php on line 185

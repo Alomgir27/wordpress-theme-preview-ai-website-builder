@@ -61,26 +61,24 @@ class Theme_Preview_Generator {
 
     public function register_settings() {
         register_setting(
-            'theme_preview_settings',
-            'theme_preview_settings',
-            array($this, 'sanitize_settings')
+            'theme_preview_generator',
+            'theme_preview_generator_settings',
+            array(
+                'type' => 'object',
+                'default' => array(
+                    'cloudinary_cloud_name' => '',
+                    'cloudinary_upload_preset' => '',
+                    'openai_api_key' => ''
+                ),
+                'sanitize_callback' => array($this, 'sanitize_settings')
+            )
         );
 
         add_settings_section(
-            'theme_preview_api_settings',
-            'API Configuration',
+            'theme_preview_generator_section',
+            'Theme Preview Generator Settings',
             array($this, 'render_settings_section'),
-            'theme_preview_settings'
-        );
-
-        // OpenAI Settings
-        add_settings_field(
-            'openai_api_key',
-            'OpenAI API Key',
-            array($this, 'render_text_field'),
-            'theme_preview_settings',
-            'theme_preview_api_settings',
-            array('field' => 'openai_api_key', 'description' => 'Enter your OpenAI API key for AI content generation')
+            'theme_preview_generator'
         );
 
         // Cloudinary Settings
@@ -88,45 +86,56 @@ class Theme_Preview_Generator {
             'cloudinary_cloud_name',
             'Cloudinary Cloud Name',
             array($this, 'render_text_field'),
-            'theme_preview_settings',
-            'theme_preview_api_settings',
-            array('field' => 'cloudinary_cloud_name', 'description' => 'Your Cloudinary cloud name')
+            'theme_preview_generator',
+            'theme_preview_generator_section',
+            array(
+                'label_for' => 'cloudinary_cloud_name',
+                'field_name' => 'cloudinary_cloud_name',
+                'description' => 'Enter your Cloudinary cloud name (required for image uploads)'
+            )
         );
 
         add_settings_field(
-            'cloudinary_api_key',
-            'Cloudinary API Key',
+            'cloudinary_upload_preset',
+            'Cloudinary Upload Preset',
             array($this, 'render_text_field'),
-            'theme_preview_settings',
-            'theme_preview_api_settings',
-            array('field' => 'cloudinary_api_key', 'description' => 'Your Cloudinary API key')
+            'theme_preview_generator',
+            'theme_preview_generator_section',
+            array(
+                'label_for' => 'cloudinary_upload_preset',
+                'field_name' => 'cloudinary_upload_preset',
+                'description' => 'Enter your Cloudinary upload preset (required for image uploads)'
+            )
         );
 
+        // OpenAI Settings
         add_settings_field(
-            'cloudinary_api_secret',
-            'Cloudinary API Secret',
+            'openai_api_key',
+            'OpenAI API Key',
             array($this, 'render_text_field'),
-            'theme_preview_settings',
-            'theme_preview_api_settings',
-            array('field' => 'cloudinary_api_secret', 'description' => 'Your Cloudinary API secret')
+            'theme_preview_generator',
+            'theme_preview_generator_section',
+            array(
+                'label_for' => 'openai_api_key',
+                'field_name' => 'openai_api_key',
+                'type' => 'password',
+                'description' => 'Enter your OpenAI API key for content generation'
+            )
         );
-    }
-
-    public function render_settings_section() {
-        echo '<p>Enter your API credentials below. These are required for the plugin to function properly.</p>';
     }
 
     public function render_text_field($args) {
-        $field = $args['field'];
-        $description = $args['description'] ?? '';
-        $value = isset($this->settings[$field]) ? $this->settings[$field] : '';
-        $is_secret = strpos($field, 'api_key') !== false || strpos($field, 'api_secret') !== false;
+        $options = get_option('theme_preview_generator_settings', array());
+        $field_name = $args['field_name'];
+        $type = isset($args['type']) ? $args['type'] : 'text';
+        $value = isset($options[$field_name]) ? $options[$field_name] : '';
+        $description = isset($args['description']) ? $args['description'] : '';
         
         printf(
-            '<input type="%s" id="%s" name="theme_preview_settings[%s]" value="%s" class="regular-text" />',
-            $is_secret ? 'password' : 'text',
-            esc_attr($field),
-            esc_attr($field),
+            '<input type="%s" id="%s" name="theme_preview_generator_settings[%s]" value="%s" class="regular-text" />',
+            esc_attr($type),
+            esc_attr($field_name),
+            esc_attr($field_name),
             esc_attr($value)
         );
         
@@ -135,11 +144,21 @@ class Theme_Preview_Generator {
         }
     }
 
+    public function render_settings_section() {
+        echo '<p>Enter your API credentials below. These are required for the plugin to function properly.</p>';
+        echo '<p>You need both OpenAI API key for content generation and Cloudinary credentials for image handling.</p>';
+    }
+
     public function sanitize_settings($input) {
         $sanitized = array();
-        foreach ($this->default_settings as $key => $default) {
-            $sanitized[$key] = isset($input[$key]) ? sanitize_text_field($input[$key]) : $default;
+        $fields = array('openai_api_key', 'cloudinary_cloud_name', 'cloudinary_upload_preset');
+        
+        foreach ($fields as $field) {
+            if (isset($input[$field])) {
+                $sanitized[$field] = sanitize_text_field($input[$field]);
+            }
         }
+        
         return $sanitized;
     }
 
@@ -159,33 +178,28 @@ class Theme_Preview_Generator {
         if (!current_user_can('manage_options')) {
             return;
         }
+
+        if (isset($_GET['settings-updated'])) {
+            add_settings_error(
+                'theme_preview_generator_messages',
+                'theme_preview_generator_message',
+                'Settings Saved',
+                'updated'
+            );
+        }
+
+        settings_errors('theme_preview_generator_messages');
         ?>
-        <div class="wrap theme-preview-settings-page">
+        <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            <div class="notice notice-info">
-                <p>Configure your API keys for OpenAI and Cloudinary integration. These are required for AI-powered content generation and cloud image storage.</p>
-            </div>
             <form action="options.php" method="post">
                 <?php
-                settings_fields('theme_preview_settings');
-                do_settings_sections('theme_preview_settings');
-                submit_button('Save API Settings');
+                settings_fields('theme_preview_generator');
+                do_settings_sections('theme_preview_generator');
+                submit_button('Save Settings');
                 ?>
             </form>
         </div>
-        <style>
-            .theme-preview-settings-page .form-table th {
-                width: 200px;
-                font-weight: 600;
-            }
-            .theme-preview-settings-page .regular-text {
-                width: 400px;
-                padding: 8px;
-            }
-            .theme-preview-settings-page .notice {
-                margin: 20px 0;
-            }
-        </style>
         <?php
     }
 
@@ -194,32 +208,52 @@ class Theme_Preview_Generator {
     }
 
     public function enqueue_scripts() {
-        wp_enqueue_style(
-            'theme-preview-generator',
-            plugins_url('assets/css/theme-preview.css', __FILE__),
-            array(),
-            '1.0.0'
-        );
+        if (!is_admin()) {
+            $settings = get_option('theme_preview_generator_settings', array());
+            
+            wp_enqueue_script(
+                'theme-preview-generator',
+                plugins_url('assets/js/image-handler.js', __FILE__),
+                array('jquery'),
+                '1.0.0',
+                true
+            );
 
-        wp_enqueue_script(
-            'theme-preview-generator',
-            plugins_url('assets/js/image-handler.js', __FILE__),
-            array('jquery'),
-            '1.0.0',
-            true
-        );
+            wp_localize_script(
+                'theme-preview-generator',
+                'themePreviewSettings',
+                array(
+                    'cloudName' => isset($settings['cloudinary_cloud_name']) ? $settings['cloudinary_cloud_name'] : '',
+                    'uploadPreset' => isset($settings['cloudinary_upload_preset']) ? $settings['cloudinary_upload_preset'] : '',
+                    'openaiApiKey' => isset($settings['openai_api_key']) ? $settings['openai_api_key'] : '',
+                    'themeName' => wp_get_theme()->get('Name'),
+                    'themeVersion' => wp_get_theme()->get('Version'),
+                    'themeAuthor' => wp_get_theme()->get('Author'),
+                    'themeDescription' => wp_get_theme()->get('Description'),
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce' => wp_create_nonce('theme_preview_generator')
+                )
+            );
+        }
+    }
 
-        // Get Cloudinary settings
-        $cloud_name = $this->get_setting('cloudinary_cloud_name');
-        $upload_preset = $this->get_setting('cloudinary_upload_preset');
+    private function is_preview_page() {
+        // Check if we're on a preview page
+        if (isset($_GET['preview_theme'])) {
+            return true;
+        }
 
-        wp_localize_script('theme-preview-generator', 'themePreviewSettings', array(
-            'cloudName' => $cloud_name,
-            'uploadPreset' => $upload_preset,
-            'themeName' => get_stylesheet(),
-            'maxFileSize' => 5 * 1024 * 1024, // 5MB in bytes
-            'allowedTypes' => array('image/jpeg', 'image/png', 'image/gif', 'image/webp')
-        ));
+        // Check URL path for preview
+        if (preg_match('/\/preview\/([^\/]+)/', $_SERVER['REQUEST_URI'])) {
+            return true;
+        }
+
+        // Check if we're on the front page or any public page
+        if (is_front_page() || is_page() || is_single() || is_archive() || is_home()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function early_init() {
@@ -292,6 +326,10 @@ class Theme_Preview_Generator {
             return true;
         }
         return $preempt;
+    }
+
+    public function get_settings() {
+        return get_option('theme_preview_generator_settings', array());
     }
 
     public function handle_preview() {
@@ -642,26 +680,17 @@ class Theme_Preview_Generator {
                     }
                 });
                 
-                // View Original button
-                const viewOriginalBtn = createActionButton('Original', 'eye');
-                viewOriginalBtn.style.display = 'none';
-                viewOriginalBtn.addEventListener('click', () => {
-                    showContentComparison(element);
-                });
+                
                 
                 actions.appendChild(editBtn);
                 actions.appendChild(copyBtn);
                 actions.appendChild(generateBtn);
-                actions.appendChild(viewOriginalBtn);
                 wrapper.appendChild(actions);
                 
                 wrapper.addEventListener('mouseenter', () => {
                     actions.style.opacity = '1';
                     actions.style.visibility = 'visible';
-                    const originalContent = element.getAttribute('data-original-content');
-                    if (originalContent && originalContent !== element.textContent) {
-                        viewOriginalBtn.style.display = 'flex';
-                    }
+                    
                 });
                 
                 wrapper.addEventListener('mouseleave', () => {
@@ -989,66 +1018,48 @@ class Theme_Preview_Generator {
             const container = document.createElement('div');
             container.style.cssText = `
                 background: white;
-                padding: 32px;
-                border-radius: 16px;
-                width: 90%;
-                max-width: 800px;
+                border-radius: 8px;
+                width: 800px;
+                max-width: 90vw;
+                max-height: 90vh;
+                overflow: auto;
                 position: relative;
-                display: flex;
-                flex-direction: column;
-                gap: 24px;
             `;
             
             const header = document.createElement('div');
-            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            header.style.cssText = 'padding: 16px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;';
             header.innerHTML = `
-                <h3 style="margin: 0; color: #1e1e1e;">Edit Content</h3>
-                <button class="close-button" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+                <h3 style="margin: 0; color: #333;">Edit Content</h3>
+                <button class="close-button" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
             `;
             
             const contentArea = document.createElement('div');
-            contentArea.style.cssText = 'display: flex; gap: 24px;';
-            
-            const originalSide = document.createElement('div');
-            originalSide.style.cssText = 'flex: 1;';
-            originalSide.innerHTML = `
-                <h4 style="margin: 0 0 8px 0; color: #666;">Original Content</h4>
-                <div style="padding: 16px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px;">${originalContent}</div>
-                <button class="restore-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Restore Original</button>
-            `;
+            contentArea.style.cssText = 'padding: 16px;';
             
             const editSide = document.createElement('div');
             editSide.style.cssText = 'flex: 1;';
             editSide.innerHTML = `
-                <h4 style="margin: 0 0 8px 0; color: #666;">Edit Content</h4>
                 <textarea style="width: 100%; min-height: 150px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font-family: inherit;">${currentContent}</textarea>
                 <div style="margin-top: 16px; display: flex; gap: 8px;">
                     <button class="save-button" style="padding: 8px 16px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Changes</button>
                     <button class="copy-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Copy Content</button>
+                    <button class="generate-button" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
                 </div>
             `;
             
-            contentArea.appendChild(originalSide);
             contentArea.appendChild(editSide);
-            
             container.appendChild(header);
             container.appendChild(contentArea);
             modal.appendChild(container);
             
             // Event listeners
             const closeBtn = header.querySelector('.close-button');
-            const restoreBtn = originalSide.querySelector('.restore-button');
             const saveBtn = editSide.querySelector('.save-button');
             const copyBtn = editSide.querySelector('.copy-button');
+            const generateBtn = editSide.querySelector('.generate-button');
             const textarea = editSide.querySelector('textarea');
             
             closeBtn.addEventListener('click', () => modal.remove());
-            
-            restoreBtn.addEventListener('click', () => {
-                element.textContent = originalContent;
-                modal.remove();
-                showToast('Content restored to original');
-            });
             
             saveBtn.addEventListener('click', () => {
                 const newContent = textarea.value.trim();
@@ -1060,16 +1071,15 @@ class Theme_Preview_Generator {
             });
             
             copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(textarea.value).then(() => {
-                    showToast('Content copied to clipboard');
-                });
+                navigator.clipboard.writeText(textarea.value)
+                    .then(() => showToast('Content copied to clipboard'))
+                    .catch(() => showToast('Failed to copy content'));
             });
-            
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
+
+            generateBtn.addEventListener('click', () => {
+                this.showGenerateModal(element);
+                modal.remove();
             });
-            
-            document.body.appendChild(modal);
         }
 
         // Update the event listeners for text elements
@@ -1079,7 +1089,6 @@ class Theme_Preview_Generator {
             if (element.closest('.content-actions')) return;
             
             element.setAttribute('data-has-actions', 'true');
-            element.setAttribute('data-original-content', element.textContent);
             
             const wrapper = document.createElement('div');
             wrapper.style.cssText = `
@@ -1131,17 +1140,32 @@ class Theme_Preview_Generator {
                 
                 switch(tagName) {
                     case 'h1':
-                        prompt = 'Generate a catchy headline for this section';
+                        prompt = 'Generate a catchy headline for a website with similar style to the text';
                         break;
                     case 'h2':
-                    case 'h3':
-                        prompt = 'Generate a compelling subheading';
+                        prompt = 'Generate a catchy subheadline for a website with similar style to the text';
                         break;
                     case 'p':
-                        prompt = 'Generate engaging paragraph content';
+                        prompt = 'Generate a catchy paragraph for a website with similar style to the text';
+                        break;
+                    case 'a':
+                        prompt = 'Generate a catchy link text for a website with similar style to the text';
+                        break;
+                    case 'button':
+                        prompt = 'Generate a catchy button text for a website with similar style to the text';
+                        break;
+                    case 'img':
+                        prompt = 'Generate a catchy image caption for a website with similar style to the text';
+                        break;
+                    case 'section':
+                        prompt = 'Generate a catchy section title for a website with similar style to the text';
+                        break;
+                    case 'container':
+                        prompt = 'Generate a catchy container title for a website with similar style to the text';
                         break;
                     default:
-                        prompt = 'Generate appropriate content for this element';
+                        prompt = 'Generate a catchy text for a website with similar style to the text';
+                        break;
                 }
                 
                 if (window.themePreviewHandler) {
@@ -1151,23 +1175,26 @@ class Theme_Preview_Generator {
                 }
             });
             
+            // Add buttons to actions container
             actions.appendChild(editBtn);
             actions.appendChild(copyBtn);
             actions.appendChild(generateBtn);
-            wrapper.appendChild(actions);
             
-            wrapper.addEventListener('mouseenter', () => {
+            // Add hover effect
+            element.addEventListener('mouseenter', () => {
                 actions.style.opacity = '1';
                 actions.style.visibility = 'visible';
             });
             
-            wrapper.addEventListener('mouseleave', () => {
+            element.addEventListener('mouseleave', () => {
                 actions.style.opacity = '0';
                 actions.style.visibility = 'hidden';
             });
             
+            // Setup wrapper
             element.parentNode.insertBefore(wrapper, element);
             wrapper.appendChild(element);
+            wrapper.appendChild(actions);
         });
 
         function showImagePreview(src) {
@@ -2058,66 +2085,48 @@ class Theme_Preview_Generator {
             const container = document.createElement('div');
             container.style.cssText = `
                 background: white;
-                padding: 32px;
-                border-radius: 16px;
-                width: 90%;
-                max-width: 800px;
+                border-radius: 8px;
+                width: 800px;
+                max-width: 90vw;
+                max-height: 90vh;
+                overflow: auto;
                 position: relative;
-                display: flex;
-                flex-direction: column;
-                gap: 24px;
             `;
             
             const header = document.createElement('div');
-            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            header.style.cssText = 'padding: 16px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;';
             header.innerHTML = `
-                <h3 style="margin: 0; color: #1e1e1e;">Edit Content</h3>
-                <button class="close-button" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+                <h3 style="margin: 0; color: #333;">Edit Content</h3>
+                <button class="close-button" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
             `;
             
             const contentArea = document.createElement('div');
-            contentArea.style.cssText = 'display: flex; gap: 24px;';
-            
-            const originalSide = document.createElement('div');
-            originalSide.style.cssText = 'flex: 1;';
-            originalSide.innerHTML = `
-                <h4 style="margin: 0 0 8px 0; color: #666;">Original Content</h4>
-                <div style="padding: 16px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px;">${originalContent}</div>
-                <button class="restore-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Restore Original</button>
-            `;
+            contentArea.style.cssText = 'padding: 16px;';
             
             const editSide = document.createElement('div');
             editSide.style.cssText = 'flex: 1;';
             editSide.innerHTML = `
-                <h4 style="margin: 0 0 8px 0; color: #666;">Edit Content</h4>
                 <textarea style="width: 100%; min-height: 150px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font-family: inherit;">${currentContent}</textarea>
                 <div style="margin-top: 16px; display: flex; gap: 8px;">
                     <button class="save-button" style="padding: 8px 16px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Changes</button>
                     <button class="copy-button" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Copy Content</button>
+                    <button class="generate-button" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate</button>
                 </div>
             `;
             
-            contentArea.appendChild(originalSide);
             contentArea.appendChild(editSide);
-            
             container.appendChild(header);
             container.appendChild(contentArea);
             modal.appendChild(container);
             
             // Event listeners
             const closeBtn = header.querySelector('.close-button');
-            const restoreBtn = originalSide.querySelector('.restore-button');
             const saveBtn = editSide.querySelector('.save-button');
             const copyBtn = editSide.querySelector('.copy-button');
+            const generateBtn = editSide.querySelector('.generate-button');
             const textarea = editSide.querySelector('textarea');
             
             closeBtn.addEventListener('click', () => modal.remove());
-            
-            restoreBtn.addEventListener('click', () => {
-                element.textContent = originalContent;
-                modal.remove();
-                showToast('Content restored to original');
-            });
             
             saveBtn.addEventListener('click', () => {
                 const newContent = textarea.value.trim();
@@ -2129,16 +2138,15 @@ class Theme_Preview_Generator {
             });
             
             copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(textarea.value).then(() => {
-                    showToast('Content copied to clipboard');
-                });
+                navigator.clipboard.writeText(textarea.value)
+                    .then(() => showToast('Content copied to clipboard'))
+                    .catch(() => showToast('Failed to copy content'));
             });
-            
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
+
+            generateBtn.addEventListener('click', () => {
+                this.showGenerateModal(element);
+                modal.remove();
             });
-            
-            document.body.appendChild(modal);
         }
 
         // Update the event listeners for text elements
@@ -2148,7 +2156,6 @@ class Theme_Preview_Generator {
             if (element.closest('.content-actions')) return;
             
             element.setAttribute('data-has-actions', 'true');
-            element.setAttribute('data-original-content', element.textContent);
             
             const wrapper = document.createElement('div');
             wrapper.style.cssText = `
@@ -2210,7 +2217,7 @@ class Theme_Preview_Generator {
                         prompt = 'Generate engaging paragraph content';
                         break;
                     default:
-                        prompt = 'Generate appropriate content for this element';
+                        prompt = 'Generate appropriate content for this section';
                 }
                 
                 if (window.themePreviewHandler) {
@@ -2220,23 +2227,26 @@ class Theme_Preview_Generator {
                 }
             });
             
+            // Add buttons to actions container
             actions.appendChild(editBtn);
             actions.appendChild(copyBtn);
             actions.appendChild(generateBtn);
-            wrapper.appendChild(actions);
             
-            wrapper.addEventListener('mouseenter', () => {
+            // Add hover effect
+            element.addEventListener('mouseenter', () => {
                 actions.style.opacity = '1';
                 actions.style.visibility = 'visible';
             });
             
-            wrapper.addEventListener('mouseleave', () => {
+            element.addEventListener('mouseleave', () => {
                 actions.style.opacity = '0';
                 actions.style.visibility = 'hidden';
             });
             
+            // Setup wrapper
             element.parentNode.insertBefore(wrapper, element);
             wrapper.appendChild(element);
+            wrapper.appendChild(actions);
         });
 
         function showImagePreview(src) {

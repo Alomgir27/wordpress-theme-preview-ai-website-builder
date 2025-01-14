@@ -7,9 +7,218 @@ class ThemePreviewImageHandler {
     constructor() {
         this.settings = window.themePreviewSettings || {};
         this.userId = this.getUserId();
+        this.contentTracker = this.initializeContentTracker();
         this.init();
         // Make the instance globally accessible
         window.themePreviewHandler = this;
+    }
+
+    initializeContentTracker() {
+        const storedTracker = localStorage.getItem('theme_preview_content_tracker');
+        return storedTracker ? JSON.parse(storedTracker) : {
+            contents: {},
+            lastUpdate: Date.now(),
+            version: 1
+        };
+    }
+
+    updateContentTracker(contentId, data) {
+        this.contentTracker.contents[contentId] = {
+            ...data,
+            lastUpdate: Date.now()
+        };
+        localStorage.setItem('theme_preview_content_tracker', JSON.stringify(this.contentTracker));
+    }
+
+    generateContentId(element) {
+        const tagName = element.tagName.toLowerCase();
+        const text = element.textContent.trim();
+        const path = this.getElementPath(element);
+        const timestamp = Date.now();
+        
+        // Include more unique identifiers
+        const idString = `${path}_${tagName}_${text.substring(0, 50)}_${timestamp}_${this.userId}`; 
+        
+        let hash = 0;
+        for (let i = 0; i < idString.length; i++) {
+            const char = idString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        
+        const contentId = `content_${Math.abs(hash)}`;
+        
+        // Store the mapping between element path and content ID
+        this.updateContentTracker(contentId, {
+            path: path,
+            tagName: tagName,
+            timestamp: timestamp,
+            userId: this.userId,
+            type: 'generated'
+        });
+        
+        return contentId;
+    }
+
+    storeGeneratedContent(element, content, prompt = '') {
+        if (!element) return null;
+        
+        const contentId = this.generateContentId(element);
+        const data = {
+            content: content,
+            prompt: prompt,
+            timestamp: Date.now(),
+            userId: this.userId,
+            path: this.getElementPath(element),
+            version: 1,
+            type: 'generated'
+        };
+        
+        // Store in both localStorage and contentTracker
+        localStorage.setItem(`generated_content_${contentId}`, JSON.stringify(data));
+        this.updateContentTracker(contentId, data);
+        
+        // Mark the element
+        element.setAttribute('data-content-id', contentId);
+        element.setAttribute('data-is-generated', 'true');
+        element.setAttribute('data-content-version', '1');
+        
+        // Add visual indicators
+        this.addVersionBadge(element, data.version);
+        
+        return contentId;
+    }
+
+    applyGeneratedContent(element, data, contentId) {
+        element.textContent = data.content;
+        element.setAttribute('data-content-id', contentId);
+        element.setAttribute('data-is-generated', 'true');
+        element.setAttribute('data-content-version', data.version.toString());
+        this.addVersionBadge(element, data.version);
+    }
+
+    applyEditedContent(element, data, contentId) {
+        element.textContent = data.content;
+        element.setAttribute('data-content-id', contentId);
+        element.setAttribute('data-is-edited', 'true');
+        if (data.version) {
+            element.setAttribute('data-content-version', data.version.toString());
+            this.addVersionBadge(element, data.version);
+        }
+    }
+
+    addVersionBadge(element, version) {
+        if (!element) return;
+        
+        let badge = element.querySelector('.content-version-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'content-version-badge';
+            badge.style.cssText = `
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                background: #10B981;
+                color: white;
+                border-radius: 12px;
+                padding: 2px 8px;
+                font-size: 11px;
+                font-weight: 500;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                z-index: 1;
+            `;
+            
+            const wrapper = this.ensureWrapper(element);
+            if (wrapper) {
+                wrapper.style.position = 'relative';
+                wrapper.appendChild(badge);
+            }
+        }
+        if (badge) {
+            badge.textContent = `v${version}`;
+        }
+    }
+
+    saveContentToStorage(element) {
+        const contentId = this.generateContentId(element);
+        const data = {
+            content: element.textContent,
+            timestamp: new Date().toISOString(),
+            userId: this.userId,
+            path: this.getElementPath(element)
+        };
+        localStorage.setItem(`edited_content_${contentId}`, JSON.stringify(data));
+    }
+
+    recoverStoredContent() {
+        // Get all tracked content
+        const tracker = this.contentTracker;
+        
+        // Process each tracked content
+        Object.entries(tracker.contents).forEach(([contentId, data]) => {
+            if (data.userId !== this.userId) return;
+            
+            // Find the element using the stored path
+            const element = this.findElementByPath(data.path);
+            if (!element) return;
+            
+            // Skip UI elements
+            if (element.closest('.theme-preview-modal, .theme-preview-right-panel, .theme-preview-toast')) {
+                return;
+            }
+
+            // Recover generated content
+            const generatedData = localStorage.getItem(`generated_content_${contentId}`);
+            if (generatedData) {
+                const parsedData = JSON.parse(generatedData);
+                if (parsedData.userId === this.userId) {
+                    this.applyGeneratedContent(element, parsedData, contentId);
+                }
+            }
+
+            // Recover edited content
+            const editedData = localStorage.getItem(`edited_content_${contentId}`);
+            if (editedData) {
+                const parsedData = JSON.parse(editedData);
+                if (parsedData.userId === this.userId) {
+                    this.applyEditedContent(element, parsedData, contentId);
+                }
+            }
+        });
+    }
+
+    findElementByPath(path) {
+        try {
+            return document.querySelector(path);
+        } catch (e) {
+            // If the selector is invalid, try a more robust approach
+            const parts = path.split(' > ');
+            let current = document;
+            
+            for (const part of parts) {
+                const [tag, nth] = part.split(':nth-of-type(');
+                if (nth) {
+                    const index = parseInt(nth) - 1;
+                    const elements = Array.from(current.getElementsByTagName(tag));
+                    current = elements[index] || null;
+                } else {
+                    current = current.querySelector(part);
+                }
+                if (!current) break;
+            }
+            
+            return current;
+        }
+    }
+
+    clearContentHistory() {
+        const tracker = this.contentTracker;
+        Object.keys(tracker.contents).forEach(contentId => {
+            localStorage.removeItem(`generated_content_${contentId}`);
+            localStorage.removeItem(`edited_content_${contentId}`);
+        });
+        this.contentTracker.contents = {};
+        localStorage.setItem('theme_preview_content_tracker', JSON.stringify(this.contentTracker));
     }
 
     init() {
@@ -54,7 +263,13 @@ class ThemePreviewImageHandler {
         try {
             // Validate settings
             if (!this.settings?.cloudName || !this.settings?.uploadPreset) {
-                throw new Error('Cloudinary settings are missing');
+                const errorMsg = 'Cloudinary settings are missing. Please add your Cloud Name and Upload Preset in WordPress Admin > Theme Preview > Settings.';
+                this.showToast(errorMsg, 'error');
+                console.error('Cloudinary settings missing:', {
+                    cloudName: this.settings?.cloudName ? 'set' : 'missing',
+                    uploadPreset: this.settings?.uploadPreset ? 'set' : 'missing'
+                });
+                throw new Error(errorMsg);
             }
 
             // Show loading state
@@ -78,7 +293,7 @@ class ThemePreviewImageHandler {
             if (!cloudinaryResponse.ok) {
                 const errorText = await cloudinaryResponse.text();
                 console.error('Cloudinary upload failed:', errorText);
-                throw new Error('Failed to upload image');
+                throw new Error('Failed to upload image to Cloudinary. Please check your credentials and try again.');
             }
 
             const result = await cloudinaryResponse.json();
@@ -170,11 +385,21 @@ class ThemePreviewImageHandler {
         fileInput.accept = 'image/*';
         fileInput.style.display = 'none';
 
+        // Check if image is edited
+        const imageId = this.generateImageId(img);
+        const storedData = localStorage.getItem(`replaced_image_${imageId}`);
+        const isEdited = img.hasAttribute('data-is-replaced') || storedData;
+
         const buttons = [
             {
-                name: 'Replace Image',
+                name: 'Replace',
                 icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
                 onClick: () => fileInput.click()
+            },
+            {
+                name: 'Preview',
+                icon: '<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>',
+                onClick: () => this.showImagePreview(img)
             },
             {
                 name: 'Copy URL',
@@ -184,11 +409,6 @@ class ThemePreviewImageHandler {
                         .then(() => this.showToast('Image URL copied to clipboard!'))
                         .catch(() => this.showToast('Failed to copy URL'));
                 }
-            },
-            {
-                name: 'Preview',
-                icon: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
-                onClick: () => this.showImagePreview(img)
             },
             {
                 name: 'Download',
@@ -202,12 +422,12 @@ class ThemePreviewImageHandler {
             }
         ];
 
-        // Add "View Original" button if image is replaced
-        if (img.hasAttribute('data-is-replaced')) {
-            buttons.push({
+        // Add View Original button if image is edited
+        if (isEdited) {
+            buttons.splice(4, 0, {
                 name: 'View Original',
-                icon: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
-                onClick: () => this.showImageComparison(img)
+                icon: '<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>',
+                onClick: () => this.showOriginalImageModal(img)
             });
         }
 
@@ -230,7 +450,6 @@ class ThemePreviewImageHandler {
             if (file) {
                 try {
                     await this.handleImageUpload(file, img);
-                    // Refresh action buttons to show "View Original" if needed
                     this.addActionButton(img);
                 } catch (error) {
                     console.error('Upload failed:', error);
@@ -251,11 +470,9 @@ class ThemePreviewImageHandler {
         });
     }
 
-    showImageComparison(imageElement) {
-        const originalSrc = imageElement.getAttribute('data-original-src');
-        const currentSrc = imageElement.src;
-
+    showImagePreview(imageElement) {
         const modal = document.createElement('div');
+        modal.className = 'image-preview-modal';
         modal.style.cssText = `
             position: fixed;
             top: 0;
@@ -264,129 +481,105 @@ class ThemePreviewImageHandler {
             bottom: 0;
             background: rgba(0, 0, 0, 0.8);
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             z-index: 10000;
+            padding: 20px;
         `;
-
-        const container = document.createElement('div');
-        container.style.cssText = `
-            display: flex;
-            gap: 20px;
+        
+        const content = document.createElement('div');
+        content.className = 'image-preview-content';
+        content.style.cssText = `
             background: white;
             padding: 20px;
             border-radius: 8px;
+            position: relative;
             max-width: 90vw;
             max-height: 90vh;
+            overflow: auto;
         `;
-
-        const createImageContainer = (src, label, isOriginal = false) => {
-            const div = document.createElement('div');
-            div.style.cssText = `
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 10px;
-                cursor: ${isOriginal ? 'pointer' : 'default'};
-                padding: 10px;
-                border-radius: 8px;
-                transition: background-color 0.2s;
-            `;
-
-            if (isOriginal) {
-                div.title = 'Click to restore original image';
-                div.addEventListener('mouseenter', () => {
-                    div.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
-                });
-                div.addEventListener('mouseleave', () => {
-                    div.style.backgroundColor = 'transparent';
-                });
-                div.addEventListener('click', () => {
-                    this.resetImage(imageElement);
-                    modal.remove();
-                });
-            }
-
-            const img = document.createElement('img');
-            img.src = src;
-            img.style.cssText = `
-                max-width: 400px;
-                max-height: 70vh;
-                object-fit: contain;
-            `;
-
-            const text = document.createElement('p');
-            text.textContent = label + (isOriginal ? ' (Click to restore)' : '');
-            text.style.cssText = `
-                margin: 0;
-                font-weight: bold;
-                color: ${isOriginal ? '#2196F3' : 'inherit'};
-            `;
-
-            div.appendChild(img);
-            div.appendChild(text);
-            return div;
-        };
-
-        container.appendChild(createImageContainer(originalSrc, 'Original', true));
-        container.appendChild(createImageContainer(currentSrc, 'Current'));
-
+        
+        const img = document.createElement('img');
+        img.src = imageElement.src;
+        img.alt = imageElement.alt;
+        img.style.cssText = `
+            max-width: 100%;
+            max-height: calc(90vh - 40px);
+            object-fit: contain;
+        `;
+        
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '×';
         closeBtn.style.cssText = `
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 10px;
+            right: 10px;
             background: white;
             border: none;
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            font-size: 20px;
+            font-size: 24px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         `;
-        closeBtn.onclick = () => modal.remove();
-
-        modal.appendChild(container);
-        modal.appendChild(closeBtn);
+        
+        content.appendChild(img);
+        content.appendChild(closeBtn);
+        modal.appendChild(content);
         document.body.appendChild(modal);
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
+        
+        const closeModal = () => modal.remove();
+        closeBtn.onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+        
+        // Enable keyboard navigation
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
         });
     }
 
     resetImage(imageElement) {
         const imageId = imageElement.getAttribute('data-image-id');
-        const originalSrc = imageElement.getAttribute('data-original-src');
+        const storedData = localStorage.getItem(`replaced_image_${imageId}`);
         
-        // Remove from local storage
+        if (!storedData) return;
+        
+        const data = JSON.parse(storedData);
+        
+        // Reset image to original source
+        imageElement.src = data.originalSrc;
+        
+        // Remove stored data and attributes
         localStorage.removeItem(`replaced_image_${imageId}`);
-        
-        // Reset image attributes
-        imageElement.src = originalSrc;
         imageElement.removeAttribute('data-is-replaced');
         imageElement.removeAttribute('data-image-id');
         imageElement.removeAttribute('data-original-src');
         
-        // Re-add action buttons without "View Original"
+        // Re-add action buttons without the Original button
         this.addActionButton(imageElement);
-        
-        // Show success message
-        this.showToast('Image restored to original', 'success');
     }
 
-    ensureWrapper(img) {
-        let wrapper = img.parentElement;
+    ensureWrapper(element) {
+        if (!element) return null;
+        
+        let wrapper = element.parentElement;
+        if (!wrapper) return null;
+        
         if (!wrapper.style.position || wrapper.style.position === 'static') {
             wrapper = document.createElement('div');
             wrapper.style.position = 'relative';
             wrapper.style.display = 'inline-block';
-            img.parentNode.insertBefore(wrapper, img);
-            wrapper.appendChild(img);
+            element.parentNode.insertBefore(wrapper, element);
+            wrapper.appendChild(element);
         }
         return wrapper;
     }
@@ -467,57 +660,372 @@ class ThemePreviewImageHandler {
 
     // OpenAI content generation methods
     addLoadingState(element) {
-        // Save original content
+        if (!element) return () => {}; // Return empty function if element is null
+        
+        // Save original content and styles
         const originalContent = element.innerHTML;
-        element.setAttribute('data-original-content', originalContent);
+        const originalPosition = element.style.position;
+        const originalBackground = element.style.background;
         
         // Add loading class
         element.classList.add('theme-preview-loading');
         
-        // Create and add loading spinner
+        // Create inline loading spinner
         const spinner = document.createElement('div');
         spinner.className = 'loading-spinner';
-        spinner.style.cssText = `
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            margin-left: 10px;
-            vertical-align: middle;
+        spinner.innerHTML = `
+            <div class="spinner-container">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring-inner"></div>
+                <div class="spinner-pulse"></div>
+            </div>
         `;
+        spinner.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            width: 100%;
+            background: transparent;
+            border-radius: 8px;
+            min-height: ${element.offsetHeight}px;
+        `;
+
+        // Add styles for the spinning animations
+        const style = document.createElement('style');
+        style.textContent = `
+            .spinner-container {
+                position: relative;
+                width: 32px;
+                height: 32px;
+            }
+            .spinner-ring {
+                position: absolute;
+                width: 32px;
+                height: 32px;
+                border: 3px solid rgba(33, 150, 243, 0.1);
+                border-top: 3px solid #2196F3;
+                border-radius: 50%;
+                animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            }
+            .spinner-ring-inner {
+                position: absolute;
+                width: 20px;
+                height: 20px;
+                border: 3px solid transparent;
+                border-top: 3px solid #1976D2;
+                border-radius: 50%;
+                top: 6px;
+                left: 6px;
+                animation: spin-reverse 0.75s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            }
+            .spinner-pulse {
+                position: absolute;
+                width: 8px;
+                height: 8px;
+                background: #2196F3;
+                border-radius: 50%;
+                top: 12px;
+                left: 12px;
+                animation: pulse 1s ease-in-out infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            @keyframes spin-reverse {
+                0% { transform: rotate(360deg); }
+                100% { transform: rotate(0deg); }
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.2); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            .theme-preview-loading {
+                position: relative;
+                transition: all 0.3s ease;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Clear the element's content and add the spinner
+        element.innerHTML = '';
         element.appendChild(spinner);
         
         // Return function to remove loading state
         return () => {
             element.classList.remove('theme-preview-loading');
+            element.style.position = originalPosition;
+            element.style.background = originalBackground;
             const loadingSpinner = element.querySelector('.loading-spinner');
             if (loadingSpinner) {
                 loadingSpinner.remove();
             }
+            style.remove();
         };
+    }
+
+    getElementPath(element) {
+        const path = [];
+        let current = element;
+        
+        while (current && current !== document.body) {
+            let selector = current.tagName.toLowerCase();
+            if (current.id) {
+                selector += `#${current.id}`;
+            } else {
+                let nth = 1;
+                let sibling = current.previousElementSibling;
+                
+                while (sibling) {
+                    if (sibling.tagName === current.tagName) nth++;
+                    sibling = sibling.previousElementSibling;
+                }
+                
+                if (nth > 1) selector += `:nth-of-type(${nth})`;
+            }
+            
+            path.unshift(selector);
+            current = current.parentElement;
+        }
+        
+        return path.join(' > ');
+    }
+
+    async generatePageContent(business, prompt) {
+        // Show initial loading state with absolute positioning
+        const initialLoader = document.createElement('div');
+        initialLoader.className = 'initial-loading-spinner';
+        initialLoader.innerHTML = `
+            <div class="spinner-container">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring-inner"></div>
+                <div class="spinner-pulse"></div>
+                <span style="font-size: 14px; color: #333; margin-top: 8px;">Generating...</span>
+            </div>
+        `;
+        initialLoader.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            backdrop-filter: blur(5px);
+        `;
+
+        const spinnerStyles = document.createElement('style');
+        spinnerStyles.textContent = `
+            .spinner-container {
+                position: relative;
+                width: 80px;
+                height: 80px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+            .spinner-ring {
+                position: absolute;
+                width: 60px;
+                height: 60px;
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #2196F3;
+                border-radius: 50%;
+                animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            }
+            .spinner-ring-inner {
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                border: 3px solid transparent;
+                border-top: 3px solid #1976D2;
+                border-radius: 50%;
+                animation: spin-reverse 0.75s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            }
+            .spinner-pulse {
+                position: absolute;
+                width: 15px;
+                height: 15px;
+                background: #2196F3;
+                border-radius: 50%;
+                animation: pulse 1s ease-in-out infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            @keyframes spin-reverse {
+                0% { transform: rotate(360deg); }
+                100% { transform: rotate(0deg); }
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.2); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(spinnerStyles);
+        document.body.appendChild(initialLoader);
+
+        try {
+            // Get stored prompt
+            const storedPrompt = localStorage.getItem('theme_preview_prompt');
+            if (!storedPrompt) {
+                throw new Error('No prompt found. Please set a prompt in the Generate panel.');
+            }
+
+            // Collect all text content from the page
+            const contentElements = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, .wp-block-heading, .wp-block-paragraph'));
+            const contentMap = new Map();
+
+            // Create a structured content map
+            contentElements.forEach(element => {
+                const tag = element.tagName.toLowerCase();
+                const text = element.textContent.trim();
+                if (text) {
+                    if (!contentMap.has(tag)) {
+                        contentMap.set(tag, []);
+                    }
+                    contentMap.get(tag).push({
+                        element: element,
+                        text: text,
+                        path: this.getElementPath(element)
+                    });
+                }
+            });
+
+            // Create a structured prompt and get the response
+            const contentStructure = Array.from(contentMap.entries()).map(([tag, items]) => ({
+                tag: tag,
+                items: items.map(item => ({
+                    text: item.text,
+                    type: tag
+                }))
+            }));
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.settings.openaiApiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [
+                        {
+                            role: "system",
+                            content: `You are an AI that creates website content. Generate content for a ${business} website. Use this specific prompt for guidance: ${storedPrompt}. Maintain the exact same structure and formatting. Return ONLY a valid JSON array with the exact same structure as provided, without any markdown formatting or code blocks.`
+                        },
+                        {
+                            role: "user",
+                            content: `Original content structure: ${JSON.stringify(contentStructure)}\n\nGenerate new content following the prompt: ${storedPrompt}`
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 2000
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Failed to generate content');
+            }
+
+            const result = await response.json();
+            console.log('OpenAI Response:', result);
+            const content = result.choices[0].message.content;
+            console.log('Generated Content:', content);
+            
+            // Parse the content as JSON
+            let newContent;
+            try {
+                newContent = JSON.parse(content);
+            } catch (error) {
+                throw new Error('Failed to parse generated content');
+            }
+
+            // Remove initial loader immediately after getting the response
+            initialLoader.remove();
+            spinnerStyles.remove();
+
+            // Apply the new content while maintaining structure
+            for (const section of newContent) {
+                const elements = contentMap.get(section.tag) || [];
+                for (let i = 0; i < section.items.length; i++) {
+                    const item = section.items[i];
+                    const elementData = elements[i];
+                    if (elementData) {
+                        const element = elementData.element;
+                        // Add individual loading state
+                        const removeLoader = this.addLoadingState(element);
+                        // Show loading state for a brief moment
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        element.textContent = item.text;
+                        const contentId = this.storeGeneratedContent(element, item.text, business);
+                        if (!contentId) {
+                            console.warn('Failed to store generated content');
+                        }
+                        removeLoader();
+                    }
+                }
+            }
+
+            this.showToast('Content generated successfully', 'success');
+
+        } catch (error) {
+            console.error('Page content generation error:', error);
+            this.showToast(error.message || 'Failed to generate page content', 'error');
+            throw error;
+        } finally {
+            // Ensure loaders are removed in case of error
+            if (document.body.contains(initialLoader)) {
+                initialLoader.remove();
+                spinnerStyles.remove();
+            }
+        }
     }
 
     async generateContent(business, element) {
         let removeLoader;
-        if (element) {
-            removeLoader = this.addLoadingState(element);
-        }
         
         try {
+            // Use the passed business parameter first, then fallback to stored value
+            const businessName = business || localStorage.getItem('theme_preview_business');
+            if (!businessName) {
+                throw new Error('Please set a business name first in the Generate panel');
+            }
+
             if (!this.settings?.openaiApiKey) {
-                throw new Error('OpenAI API key is missing');
+                const errorMsg = 'OpenAI API key is missing. Please add it in WordPress Admin > Theme Preview > Settings.';
+                this.showToast(errorMsg, 'error');
+                throw new Error(errorMsg);
+            }
+
+            let originalContent = '';
+            let contentLength = 0;
+
+            if (element) {
+                originalContent = element.textContent?.trim() || '';
+                contentLength = originalContent.length;
             }
 
             const systemPrompt = {
                 role: "system",
-                content: `You are an AI that creates the content for a WordPress webpage.
-                    The webpage content should be exciting and showcase great confidence in your business. 
-                    You are a specialist in your field.
-                    The business for which the webpage is created is: ${business}.
-                    Follow the user's flow to craft each piece of text for the website.
-                    Ensure the content is cohesive, interrelated, and not isolated.
-                    Prioritize quality above all. The text must be high-quality, not generic, and easy to understand. 
-                    Keep sentences under 150 characters. Use a conversational tone with simple language, 
-                    suitable for a third-grade student, and minimize academic jargon.`
+                content: `You are an AI that creates the content for a WordPress webpage. 
+                The business for which the webpage is created is: ${businessName}.
+                Follow the user's flow to craft each piece of text for the website.
+                Ensure the content is cohesive, interrelated, and not isolated.
+                Prioritize quality above all. The text must be high-quality. Use a conversational tone with simple language, 
+                suitable for a third-grade student, and minimize academic jargon.
+                IMPORTANT: Generate content that matches the following constraints:
+                - Maintain approximately ${contentLength} characters
+                - Maintain similar structure and formatting as the original text`
             };
 
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -527,30 +1035,54 @@ class ThemePreviewImageHandler {
                     'Authorization': `Bearer ${this.settings.openaiApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [systemPrompt],
-                    temperature: 0.7
+                    model: "gpt-4o",
+                    messages: [
+                        systemPrompt,
+                        {
+                            role: "user",
+                            content: `Original content structure:\n${originalContent}\n\nGenerate new content maintaining similar length and structure.`
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: Math.max(500, contentLength * 2)
                 })
             });
 
             if (!response.ok) {
-                throw new Error('Failed to generate content');
+                const error = await response.json();
+                const errorMsg = error.error?.message || 'Failed to generate content';
+                this.showToast(`OpenAI Error: ${errorMsg}`, 'error');
+                throw new Error(errorMsg);
             }
 
             const result = await response.json();
+            console.log('OpenAI Response:', result);
             const content = result.choices[0].message.content;
+            console.log('Generated Content:', content);
             
+            // Parse the content as JSON
+            let newContent;
+            try {
+                newContent = content;
+            } catch (error) {
+                throw new Error('Failed to parse generated content');
+            }
+
             if (element) {
-                element.innerHTML = content;
+                element.innerHTML = newContent;
+                this.showToast('Content generated successfully', 'success');
+                const contentId = this.storeGeneratedContent(element, newContent, businessName);
+                if (!contentId) {
+                    console.warn('Failed to store generated content');
+                }
             }
             
-            return content;
+            return newContent;
         } catch (error) {
             console.error('Content generation error:', error);
-            this.showToast('Failed to generate content', 'error');
+            this.showToast(error.message || 'Failed to generate content', 'error');
             if (element) {
-                // Restore original content on error
-                element.innerHTML = element.getAttribute('data-original-content');
+                element.innerHTML = element.getAttribute('data-original-content') || element.innerHTML;
             }
             throw error;
         } finally {
@@ -593,7 +1125,7 @@ class ThemePreviewImageHandler {
                     'Authorization': `Bearer ${this.settings.openaiApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
+                    model: "gpt-4o",
                     messages: [systemPrompt, userPrompt],
                     temperature: 0.8
                 })
@@ -640,32 +1172,90 @@ class ThemePreviewImageHandler {
     showImagePreview(imageElement) {
         const modal = document.createElement('div');
         modal.className = 'image-preview-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        `;
+        
+        const content = document.createElement('div');
+        content.className = 'image-preview-content';
+        content.style.cssText = `
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        `;
         
         const img = document.createElement('img');
         img.src = imageElement.src;
-        img.alt = imageElement.alt;
+        img.alt = 'Original Image';
+        img.style.cssText = `
+            max-width: 100%;
+            max-height: calc(90vh - 120px);
+            object-fit: contain;
+        `;
+
+        const restoreButton = document.createElement('button');
+        restoreButton.textContent = 'Restore Original Image';
+        restoreButton.style.cssText = `
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            &:hover {
+                background: #1976D2;
+            }
+        `;
         
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '×';
         closeBtn.style.cssText = `
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 10px;
+            right: 10px;
             background: white;
             border: none;
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            font-size: 20px;
+            font-size: 24px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         `;
+
+        restoreButton.addEventListener('click', () => {
+            this.resetImage(imageElement);
+            modal.remove();
+        });
         
-        modal.appendChild(img);
-        modal.appendChild(closeBtn);
+        content.appendChild(img);
+        content.appendChild(restoreButton);
+        content.appendChild(closeBtn);
+        modal.appendChild(content);
         document.body.appendChild(modal);
         
         const closeModal = () => modal.remove();
@@ -674,7 +1264,6 @@ class ThemePreviewImageHandler {
             if (e.target === modal) closeModal();
         };
         
-        // Enable keyboard navigation
         document.addEventListener('keydown', function escHandler(e) {
             if (e.key === 'Escape') {
                 closeModal();
@@ -693,52 +1282,53 @@ class ThemePreviewImageHandler {
             transform: translateY(-50%);
             background: rgba(255, 255, 255, 0.98);
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
             padding: 12px;
             display: flex;
             flex-direction: column;
             gap: 8px;
             z-index: 9999;
             transition: all 0.3s ease;
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             backdrop-filter: blur(10px);
+            min-width: 150px;
             &:hover {
-                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+                box-shadow: 0 12px 40px rgba(31, 38, 135, 0.25);
             }
         `;
         
         const buttons = [
             {
+                name: 'Generate All',
+                icon: '<path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>',
+                onClick: () => this.showContentGenerator(),
+                color: '#10B981',
+                highlight: true
+            },
+            {
                 name: 'Copy Template',
                 icon: '<path d="M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-                onClick: () => this.copyEntireTemplate()
+                onClick: () => this.copyEntireTemplate(),
+                color: '#6366F1'
             },
             {
                 name: 'Copy Blocks',
                 icon: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-                onClick: () => this.copyBlocks()
+                onClick: () => this.copyBlocks(),
+                color: '#8B5CF6'
             },
             {
                 name: 'Theme Info',
                 icon: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/>',
-                onClick: () => this.showThemeInfo()
-            },
-            {
-                name: 'Prompt',
-                icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-                onClick: () => this.showPromptModal()
-            },
-            {
-                name: 'Generate',
-                icon: '<path d="M12 3v19M5 12h14M15 5l-3-3-3 3M15 21l-3 3-3-3"/>',
-                onClick: () => this.showContentGenerator()
+                onClick: () => this.showThemeInfo(),
+                color: '#EC4899'
             }
         ];
 
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'theme-preview-panel-toggle';
         toggleBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M13 17l5-5-5-5M6 17l5-5-5-5"/>
             </svg>
         `;
@@ -764,27 +1354,37 @@ class ThemePreviewImageHandler {
             }
         `;
 
-        buttons.forEach(({name, icon, onClick}) => {
+        buttons.forEach(({name, icon, onClick, color, highlight}) => {
             const button = document.createElement('button');
             button.className = 'theme-preview-panel-button';
-            button.style.cssText = `
-                background: white;
-                border: 1px solid #e0e0e0;
-                border-radius: 12px;
-                padding: 10px 12px;
+            const baseStyles = `
+                background: ${highlight ? `linear-gradient(135deg, ${color}, ${color}dd)` : 'white'};
+                border: 1px solid ${highlight ? 'transparent' : '#e0e0e0'};
+                border-radius: 10px;
+                padding: 8px 12px;
                 display: flex;
                 align-items: center;
                 gap: 8px;
                 cursor: pointer;
                 transition: all 0.2s;
-                min-width: 140px;
+                min-width: 130px;
+                color: ${highlight ? 'white' : color};
+                position: relative;
+                overflow: hidden;
+                
                 &:hover {
-                    background: #f8f9fa;
-                    transform: translateX(-5px);
-                    box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.1);
-                    border-color: #2196F3;
+                    transform: translateX(-3px);
+                    box-shadow: 3px 3px 10px ${color}22;
+                    border-color: ${color};
+                    background: ${highlight ? `linear-gradient(135deg, ${color}dd, ${color})` : `linear-gradient(135deg, white, ${color}11)`};
+                }
+                
+                &:active {
+                    transform: translateX(-3px) scale(0.98);
                 }
             `;
+            
+            button.style.cssText = baseStyles;
             
             button.innerHTML = `
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1214,17 +1814,21 @@ class ThemePreviewImageHandler {
         content.style.cssText = `
             background: white;
             border-radius: 16px;
-            width: 400px;
-            padding: 24px;
+            width: 750px;
+            padding: 32px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         `;
 
+        // Get stored values
+        const storedBusiness = localStorage.getItem('theme_preview_business') || '';
+        const storedPrompt = localStorage.getItem('theme_preview_prompt') || '';
+
         content.innerHTML = `
-            <h2 style="margin: 0 0 20px; font-size: 1.5rem; color: #333;">Generate Content</h2>
-            <div style="margin-bottom: 16px;">
+            <h2 style="margin: 0 0 24px; font-size: 1.5rem; color: #333;">Generate Content</h2>
+            <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Business Name</label>
-                <input type="text" placeholder="Enter business name" style="
-                    width: 100%;
+                <input type="text" value="${storedBusiness}" placeholder="Enter business name" style="
+                    width: 700px;
                     padding: 10px;
                     border: 1px solid #e0e0e0;
                     border-radius: 8px;
@@ -1236,10 +1840,27 @@ class ThemePreviewImageHandler {
                     }
                 ">
             </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Prompt</label>
+                <textarea placeholder="Enter your prompt for content generation" style="
+                    width: 700px;
+                    padding: 10px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    min-height: 100px;
+                    resize: vertical;
+                    &:focus {
+                        outline: none;
+                        border-color: #2196F3;
+                        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+                    }
+                ">${storedPrompt}</textarea>
+            </div>
             <div style="margin-bottom: 24px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Content Type</label>
                 <select style="
-                    width: 100%;
+                    width: 700px;
                     padding: 10px;
                     border: 1px solid #e0e0e0;
                     border-radius: 8px;
@@ -1291,33 +1912,46 @@ class ThemePreviewImageHandler {
         document.body.appendChild(modal);
 
         const businessInput = content.querySelector('input');
+        const promptTextarea = content.querySelector('textarea');
         const typeSelect = content.querySelector('select');
         const generateBtn = content.querySelector('.generate-btn');
         const cancelBtn = content.querySelector('.cancel-btn');
 
+        // Auto-focus the business input if empty
+        if (!storedBusiness) {
+            businessInput.focus();
+        }
+
         generateBtn.onclick = async () => {
             const business = businessInput.value.trim();
+            const prompt = promptTextarea.value.trim();
             const type = typeSelect.value;
             
-            if (business) {
+            if (business && prompt) {
+                // Store values in localStorage
+                localStorage.setItem('theme_preview_business', business);
+                localStorage.setItem('theme_preview_prompt', prompt);
+                
                 modal.remove();
                 const contentArea = document.querySelector('.entry-content');
                 
                 switch (type) {
                     case 'full':
-                        await this.generateContent(business, contentArea);
+                        await this.generatePageContent(business, prompt);
                         break;
                     case 'tagline':
-                        const tagline = await this.generateSingleTagline(business);
+                        const tagline = await this.generateSingleTagline(business, prompt);
                         if (tagline) {
                             const taglineElement = document.querySelector('.site-description') || document.createElement('div');
                             taglineElement.textContent = tagline;
                         }
                         break;
                     case 'description':
-                        await this.generateContent(business, contentArea, true);
+                        await this.generateContent(business, contentArea, prompt);
                         break;
                 }
+            } else {
+                this.showToast('Please enter both business name and prompt', 'error');
             }
         };
 
@@ -1325,106 +1959,127 @@ class ThemePreviewImageHandler {
         modal.onclick = (e) => {
             if (e.target === modal) modal.remove();
         };
-    }
 
-    generateContentId(element) {
-        // Create a unique ID based on the element's content and position
-        const tagName = element.tagName.toLowerCase();
-        const text = element.textContent.trim();
-        const path = this.getElementPath(element);
-        
-        // Create a string that uniquely identifies this content
-        const idString = `${path}_${tagName}_${text.substring(0, 50)}`; // Use first 50 chars for ID
-        
-        // Create a hash of the string
-        let hash = 0;
-        for (let i = 0; i < idString.length; i++) {
-            const char = idString.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        
-        return `content_${Math.abs(hash)}`;
-    }
-
-    getElementPath(element) {
-        const path = [];
-        let current = element;
-        
-        while (current && current !== document.body) {
-            let selector = current.tagName.toLowerCase();
-            if (current.id) {
-                selector += `#${current.id}`;
-            } else {
-                let nth = 1;
-                let sibling = current.previousElementSibling;
-                
-                while (sibling) {
-                    if (sibling.tagName === current.tagName) nth++;
-                    sibling = sibling.previousElementSibling;
-                }
-                
-                if (nth > 1) selector += `:nth-of-type(${nth})`;
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', escHandler);
             }
-            
-            path.unshift(selector);
-            current = current.parentElement;
-        }
-        
-        return path.join(' > ');
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                generateBtn.click();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
     }
 
-    saveContentToStorage(element) {
-        const contentId = this.generateContentId(element);
-        const data = {
-            content: element.textContent,
-            timestamp: new Date().toISOString(),
-            userId: this.userId,
-            path: this.getElementPath(element)
+    showOriginalImageModal(imageElement) {
+        const imageId = imageElement.getAttribute('data-image-id');
+        const storedData = localStorage.getItem(`replaced_image_${imageId}`);
+        
+        if (!storedData) return;
+        
+        const data = JSON.parse(storedData);
+        const originalSrc = data.originalSrc;
+
+        const modal = document.createElement('div');
+        modal.className = 'image-preview-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        `;
+        
+        const content = document.createElement('div');
+        content.className = 'image-preview-content';
+        content.style.cssText = `
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        `;
+        
+        const img = document.createElement('img');
+        img.src = originalSrc;
+        img.alt = 'Original Image';
+        img.style.cssText = `
+            max-width: 100%;
+            max-height: calc(90vh - 120px);
+            object-fit: contain;
+        `;
+
+        const restoreButton = document.createElement('button');
+        restoreButton.textContent = 'Restore Original Image';
+        restoreButton.style.cssText = `
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            &:hover {
+                background: #1976D2;
+            }
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+
+        restoreButton.addEventListener('click', () => {
+            this.resetImage(imageElement);
+            modal.remove();
+        });
+        
+        content.appendChild(img);
+        content.appendChild(restoreButton);
+        content.appendChild(closeBtn);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        const closeModal = () => modal.remove();
+        closeBtn.onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
         };
-        localStorage.setItem(`edited_content_${contentId}`, JSON.stringify(data));
         
-        // Add restore button if not already present
-        if (!element.nextElementSibling?.classList.contains('restore-content-btn')) {
-            const restoreBtn = document.createElement('button');
-            restoreBtn.className = 'restore-content-btn';
-            restoreBtn.textContent = 'Restore Original';
-            restoreBtn.style.cssText = `
-                margin-left: 10px;
-                padding: 8px 16px;
-                background: #f5f5f5;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                cursor: pointer;
-                font-size: 12px;
-                transition: all 0.2s;
-                min-width: 120px;
-                &:hover {
-                    background: #e0e0e0;
-                }
-            `;
-            restoreBtn.onclick = () => {
-                localStorage.removeItem(`edited_content_${contentId}`);
-                element.textContent = element.getAttribute('data-original-content');
-                restoreBtn.remove();
-                this.showToast('Content restored to original', 'success');
-            };
-            element.parentNode.insertBefore(restoreBtn, element.nextSibling);
-        }
-    }
-
-    recoverStoredContent() {
-        document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(element => {
-            const contentId = this.generateContentId(element);
-            const storedData = localStorage.getItem(`edited_content_${contentId}`);
-            
-            if (storedData) {
-                const data = JSON.parse(storedData);
-                if (data.userId === this.userId) {
-                    element.textContent = data.content;
-                    element.setAttribute('data-is-edited', 'true');
-                    element.setAttribute('data-content-id', contentId);
-                }
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
             }
         });
     }
@@ -1443,99 +2098,78 @@ class ThemePreviewImageHandler {
             align-items: center;
             justify-content: center;
             z-index: 99999;
-            backdrop-filter: blur(5px);
         `;
 
         const content = document.createElement('div');
+        content.className = 'theme-preview-modal-content';
         content.style.cssText = `
             background: white;
-            border-radius: 12px;
-            width: 300px;
-            padding: 16px;
+            border-radius: 16px;
+            width: 750px;
+            padding: 32px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         `;
 
-        const title = document.createElement('h2');
-        title.textContent = 'Edit Content';
-        title.style.cssText = `
-            margin: 0 0 12px;
-            font-size: 16px;
-            color: #333;
-            font-weight: 600;
+        content.innerHTML = `
+            <h2 style="margin: 0 0 24px; font-size: 1.5rem; color: #333;">Edit Content</h2>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Content</label>
+                <textarea placeholder="Enter or paste your content here..." style="
+                    width: 700px;
+                    padding: 10px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    min-height: 100px;
+                    resize: vertical;
+                    &:focus {
+                        outline: none;
+                        border-color: #2196F3;
+                        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+                    }
+                ">${element.textContent.trim()}</textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button class="cancel-btn" style="
+                    padding: 10px 20px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    background: white;
+                    color: #333;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    &:hover {
+                        background: #f5f5f5;
+                    }
+                ">Cancel</button>
+                <button class="save-btn" style="
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 8px;
+                    background: #2196F3;
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    &:hover {
+                        background: #1976D2;
+                    }
+                ">Save</button>
+            </div>
         `;
 
-        const contentTextarea = document.createElement('textarea');
-        contentTextarea.value = element.textContent.trim();
-        contentTextarea.placeholder = 'Enter your content here...';
-        contentTextarea.style.cssText = `
-            width: 100%;
-            height: 120px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-            resize: none;
-            outline: none;
-            font-family: inherit;
-            margin-bottom: 12px;
-            overflow: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            &::-webkit-scrollbar {
-                display: none;
-            }
-            &:focus {
-                border-color: #2196F3;
-                box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-            }
-        `;
+        modal.appendChild(content);
+        document.body.appendChild(modal);
 
-        const buttonGroup = document.createElement('div');
-        buttonGroup.style.cssText = `
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-        `;
-
-        const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
-        saveBtn.style.cssText = `
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            background: #2196F3;
-            color: white;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            &:hover {
-                background: #1976D2;
-            }
-        `;
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = `
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: white;
-            color: #333;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            &:hover {
-                background: #f5f5f5;
-            }
-        `;
+        const contentTextarea = content.querySelector('textarea');
+        const saveBtn = content.querySelector('.save-btn');
+        const cancelBtn = content.querySelector('.cancel-btn');
 
         saveBtn.onclick = () => {
-            const newContent = contentTextarea.value.trim();
-            if (newContent) {
-                element.textContent = newContent;
+            const editedContent = contentTextarea.value.trim();
+            if (editedContent) {
+                element.textContent = editedContent;
                 this.saveContentToStorage(element);
                 this.showToast('Content saved successfully', 'success');
                 modal.remove();
@@ -1547,19 +2181,25 @@ class ThemePreviewImageHandler {
             if (e.target === modal) modal.remove();
         };
 
-        buttonGroup.appendChild(cancelBtn);
-        buttonGroup.appendChild(saveBtn);
-        content.appendChild(title);
-        content.appendChild(contentTextarea);
-        content.appendChild(buttonGroup);
-        modal.appendChild(content);
-        document.body.appendChild(modal);
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                saveBtn.click();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
 
+        // Focus the content textarea and place cursor at the end
         contentTextarea.focus();
         contentTextarea.setSelectionRange(contentTextarea.value.length, contentTextarea.value.length);
     }
 
-    showGenerateModal(element, initialPrompt = '') {
+    // Individual content generation modal
+    showGenerateModal(element) {
         const modal = document.createElement('div');
         modal.className = 'theme-preview-modal';
         modal.style.cssText = `
@@ -1573,150 +2213,113 @@ class ThemePreviewImageHandler {
             align-items: center;
             justify-content: center;
             z-index: 99999;
-            backdrop-filter: blur(5px);
         `;
 
         const content = document.createElement('div');
+        content.className = 'theme-preview-modal-content';
         content.style.cssText = `
             background: white;
-            border-radius: 12px;
-            width: 300px;
-            padding: 16px;
+            border-radius: 16px;
+            width: 750px;
+            padding: 32px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         `;
 
-        const title = document.createElement('h2');
-        title.textContent = 'Generate Content';
-        title.style.cssText = `
-            margin: 0 0 12px;
-            font-size: 16px;
-            color: #333;
-            font-weight: 600;
+        content.innerHTML = `
+            <h2 style="margin: 0 0 24px; font-size: 1.5rem; color: #333;">Generate Individual Content</h2>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Content</label>
+                <textarea placeholder="Enter or paste your content here..." style="
+                    width: 700px;
+                    padding: 10px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    min-height: 100px;
+                    resize: vertical;
+                    &:focus {
+                        outline: none;
+                        border-color: #2196F3;
+                        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+                    }
+                ">${element ? element.textContent.trim() : ''}</textarea>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Prompt</label>
+                <textarea placeholder="Enter your prompt for content generation" style="
+                    width: 700px;
+                    padding: 10px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    min-height: 100px;
+                    resize: vertical;
+                    &:focus {
+                        outline: none;
+                        border-color: #2196F3;
+                        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+                    }
+                "></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button class="cancel-btn" style="
+                    padding: 10px 20px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    background: white;
+                    color: #333;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    &:hover {
+                        background: #f5f5f5;
+                    }
+                ">Cancel</button>
+                <button class="generate-btn" style="
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 8px;
+                    background: #F59E0B;
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    &:hover {
+                        background: #D97706;
+                    }
+                ">Generate</button>
+            </div>
         `;
 
-        // Prompt section
-        const promptLabel = document.createElement('label');
-        promptLabel.textContent = 'Prompt';
-        promptLabel.style.cssText = `
-            display: block;
-            font-weight: 500;
-            margin-bottom: 6px;
-            color: #333;
-            font-size: 14px;
-        `;
+        modal.appendChild(content);
+        document.body.appendChild(modal);
 
-        const promptTextarea = document.createElement('textarea');
-        promptTextarea.value = initialPrompt;
-        promptTextarea.placeholder = 'Enter your prompt here...';
-        promptTextarea.style.cssText = `
-            width: 100%;
-            height: 60px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-            resize: none;
-            outline: none;
-            font-family: inherit;
-            margin-bottom: 12px;
-            overflow: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            &::-webkit-scrollbar {
-                display: none;
-            }
-            &:focus {
-                border-color: #2196F3;
-                box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-            }
-        `;
-
-        // Content section
-        const contentLabel = document.createElement('label');
-        contentLabel.textContent = 'Content';
-        contentLabel.style.cssText = `
-            display: block;
-            font-weight: 500;
-            margin-bottom: 6px;
-            color: #333;
-            font-size: 14px;
-        `;
-
-        const contentTextarea = document.createElement('textarea');
-        contentTextarea.value = element ? element.textContent.trim() : '';
-        contentTextarea.placeholder = 'Generated content will appear here...';
-        contentTextarea.style.cssText = `
-            width: 100%;
-            height: 80px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-            resize: none;
-            outline: none;
-            font-family: inherit;
-            margin-bottom: 12px;
-            overflow: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            &::-webkit-scrollbar {
-                display: none;
-            }
-            &:focus {
-                border-color: #2196F3;
-                box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-            }
-        `;
-
-        const buttonGroup = document.createElement('div');
-        buttonGroup.style.cssText = `
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-        `;
-
-        const generateBtn = document.createElement('button');
-        generateBtn.textContent = 'Generate';
-        generateBtn.style.cssText = `
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            background: #2196F3;
-            color: white;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            &:hover {
-                background: #1976D2;
-            }
-        `;
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = `
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: white;
-            color: #333;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            &:hover {
-                background: #f5f5f5;
-            }
-        `;
+        const contentTextarea = content.querySelector('textarea:first-of-type');
+        const promptTextarea = content.querySelector('textarea:last-of-type');
+        const generateBtn = content.querySelector('.generate-btn');
+        const cancelBtn = content.querySelector('.cancel-btn');
 
         generateBtn.onclick = async () => {
+            const mainContent = contentTextarea.value.trim();
             const prompt = promptTextarea.value.trim();
-            if (prompt) {
+            
+            if (mainContent && prompt) {
                 modal.remove();
-                await this.generateContent(prompt, element);
-                this.saveContentToStorage(element);
+                
+                // Create a temporary element to hold the content
+                const tempElement = document.createElement('div');
+                tempElement.textContent = mainContent;
+                
+                // Generate content for this specific element using the prompt
+                await this.generateContent(prompt, tempElement);
+                
+                // Update the original element with the generated content
+                if (element) {
+                    element.textContent = tempElement.textContent;
+                    this.storeGeneratedContent(element, tempElement.textContent, prompt);
+                }
+            } else {
+                this.showToast('Please enter both content and prompt', 'error');
             }
         };
 
@@ -1725,22 +2328,21 @@ class ThemePreviewImageHandler {
             if (e.target === modal) modal.remove();
         };
 
-        buttonGroup.appendChild(cancelBtn);
-        buttonGroup.appendChild(generateBtn);
-        content.appendChild(title);
-        content.appendChild(promptLabel);
-        content.appendChild(promptTextarea);
-        content.appendChild(contentLabel);
-        content.appendChild(contentTextarea);
-        content.appendChild(buttonGroup);
-        modal.appendChild(content);
-        document.body.appendChild(modal);
-
-        promptTextarea.focus();
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                generateBtn.click();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
     }
 }
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+jQuery(document).ready(function($) {
     new ThemePreviewImageHandler();
 }); 
