@@ -8,9 +8,55 @@ class ThemePreviewImageHandler {
         this.settings = window.themePreviewSettings || {};
         this.userId = this.getUserId();
         this.contentTracker = this.initializeContentTracker();
+        this.currentTheme = this.settings.themeName;
+        this.checkThemeChange();
         this.init();
         // Make the instance globally accessible
         window.themePreviewHandler = this;
+    }
+
+    checkThemeChange() {
+        const storedTheme = localStorage.getItem('current_theme_name');
+        const currentTheme = this.settings.themeName;
+
+        if (storedTheme && storedTheme !== currentTheme) {
+            // Theme has changed, clear all previous theme data
+            this.clearAllThemeData();
+        }
+
+        // Store current theme name
+        localStorage.setItem('current_theme_name', currentTheme);
+    }
+
+    clearAllThemeData() {
+        const preserveKeys = [
+            'loglevel',
+            'theme_preview_business',
+            'theme_preview_content_tracker',
+            'theme_preview_prompt',
+            'theme_preview_user_id'
+        ];
+
+        // Clear only theme-specific data from localStorage
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            // Skip preserved keys
+            if (preserveKeys.includes(key)) continue;
+            
+            // Remove only theme-specific content
+            if (key.startsWith('replaced_image_') || 
+                key.startsWith('edited_content_') || 
+                key.startsWith('generated_content_') ||
+                key.startsWith('edited_link_')) {
+                keysToRemove.push(key);
+            }
+        }
+
+        // Remove the collected keys
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+
+        console.log('Cleared previous theme-specific data');
     }
 
     initializeContentTracker() {
@@ -223,6 +269,7 @@ class ThemePreviewImageHandler {
 
     init() {
         this.addImageActionButtons();
+        this.addContentActionButtons();
         this.observeContentChanges();
         this.recoverStoredImages();
         this.recoverStoredContent();
@@ -397,6 +444,11 @@ class ThemePreviewImageHandler {
                 onClick: () => fileInput.click()
             },
             {
+                name: 'Browse Photos',
+                icon: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5-7l-3 3.72L9 13l-3 4h12l-4-5z"/><circle cx="6.5" cy="8.5" r="1.5"/>',
+                onClick: () => this.showUnsplashModal(img)
+            },
+            {
                 name: 'Preview',
                 icon: '<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>',
                 onClick: () => this.showImagePreview(img)
@@ -468,6 +520,280 @@ class ThemePreviewImageHandler {
             actionsContainer.style.opacity = '0';
             actionsContainer.style.visibility = 'hidden';
         });
+    }
+
+    async showUnsplashModal(imageElement) {
+        const storedBusiness = localStorage.getItem('theme_preview_business') || '';
+        const modal = document.createElement('div');
+        modal.className = 'unsplash-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        `;
+
+        const content = document.createElement('div');
+        content.className = 'unsplash-modal-content';
+        content.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            width: 90vw;
+            max-width: 1200px;
+            height: 80vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        `;
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.value = storedBusiness;
+        searchInput.placeholder = 'Search photos...';
+        searchInput.style.cssText = `
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            &:focus {
+                outline: none;
+                border-color: #2196F3;
+                box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+            }
+        `;
+
+        const searchButton = document.createElement('button');
+        searchButton.innerHTML = `
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            Search
+        `;
+        searchButton.style.cssText = `
+            padding: 12px 24px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            &:hover {
+                background: #1976D2;
+            }
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = `
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #666;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+            &:hover {
+                background: #f5f5f5;
+            }
+        `;
+
+        const imageGrid = document.createElement('div');
+        imageGrid.style.cssText = `
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+            align-content: start;
+        `;
+
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.className = 'unsplash-loading-spinner';
+        loadingSpinner.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        `;
+        loadingSpinner.innerHTML = `
+            <div style="
+                width: 40px;
+                height: 40px;
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #2196F3;
+                border-radius: 50%;
+                animation: unsplashSpin 1s linear infinite;
+            "></div>
+        `;
+
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes unsplashSpin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .unsplash-image-item {
+                position: relative;
+                padding-bottom: 100%;
+                background: #f5f5f5;
+                border-radius: 8px;
+                overflow: hidden;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .unsplash-image-item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            }
+            .unsplash-image-item img {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .unsplash-image-item .photographer {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 8px;
+                background: rgba(0,0,0,0.6);
+                color: white;
+                font-size: 12px;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+            .unsplash-image-item:hover .photographer {
+                opacity: 1;
+            }
+        `;
+
+        document.head.appendChild(style);
+
+        // Bind searchUnsplash to preserve 'this' context
+        const searchUnsplash = async (query) => {
+            loadingSpinner.style.display = 'block';
+            imageGrid.innerHTML = '';
+            
+            try {
+                if (!this.settings?.unsplashAccessKey) {
+                    throw new Error('Unsplash access key is missing. Please add it in WordPress Admin > Theme Preview > Settings.');
+                }
+
+                const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=30`, {
+                    headers: {
+                        'Authorization': `Client-ID ${this.settings.unsplashAccessKey}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.errors?.[0] || 'Failed to fetch images');
+                }
+                
+                const data = await response.json();
+                
+                data.results.forEach(photo => {
+                    const item = document.createElement('div');
+                    item.className = 'unsplash-image-item';
+                    
+                    const img = document.createElement('img');
+                    img.src = photo.urls.small;
+                    img.alt = photo.alt_description || 'Unsplash image';
+                    
+                    const photographer = document.createElement('div');
+                    photographer.className = 'photographer';
+                    photographer.textContent = `Photo by ${photo.user.name}`;
+                    
+                    item.appendChild(img);
+                    item.appendChild(photographer);
+                    
+                    item.addEventListener('click', async () => {
+                        try {
+                            const response = await fetch(photo.urls.regular);
+                            const blob = await response.blob();
+                            const file = new File([blob], 'unsplash-image.jpg', { type: 'image/jpeg' });
+                            await this.handleImageUpload(file, imageElement);
+                            modal.remove();
+                            style.remove();
+                            this.showToast('Image applied successfully', 'success');
+                        } catch (error) {
+                            console.error('Failed to apply Unsplash image:', error);
+                            this.showToast('Failed to apply image', 'error');
+                        }
+                    });
+                    
+                    imageGrid.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Unsplash search error:', error);
+                this.showToast(error.message || 'Failed to search images', 'error');
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        };
+
+        header.appendChild(searchInput);
+        header.appendChild(searchButton);
+        header.appendChild(closeBtn);
+        content.appendChild(header);
+        content.appendChild(imageGrid);
+        content.appendChild(loadingSpinner);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Initial search with business name
+        if (storedBusiness) {
+            searchUnsplash(storedBusiness);
+        }
+
+        // Event listeners
+        searchButton.onclick = () => searchUnsplash(searchInput.value.trim());
+        searchInput.onkeyup = (e) => {
+            if (e.key === 'Enter') {
+                searchUnsplash(searchInput.value.trim());
+            }
+        };
+        closeBtn.onclick = () => {
+            modal.remove();
+            style.remove();
+        };
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                style.remove();
+            }
+        };
     }
 
     showImagePreview(imageElement) {
@@ -880,14 +1206,15 @@ class ThemePreviewImageHandler {
                 throw new Error('No prompt found. Please set a prompt in the Generate panel.');
             }
 
-            // Collect all text content from the page
-            const contentElements = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, .wp-block-heading, .wp-block-paragraph'));
+            // Collect all text content from the page including links
+            const contentElements = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, a, .wp-block-heading, .wp-block-paragraph'));
             const contentMap = new Map();
 
             // Create a structured content map
             contentElements.forEach(element => {
                 const tag = element.tagName.toLowerCase();
                 const text = element.textContent.trim();
+                const isLink = tag === 'a';
                 if (text) {
                     if (!contentMap.has(tag)) {
                         contentMap.set(tag, []);
@@ -895,17 +1222,21 @@ class ThemePreviewImageHandler {
                     contentMap.get(tag).push({
                         element: element,
                         text: text,
-                        path: this.getElementPath(element)
+                        path: this.getElementPath(element),
+                        isLink: isLink,
+                        href: isLink ? element.href : null
                     });
                 }
             });
 
-            // Create a structured prompt and get the response
+            // Create a structured prompt
             const contentStructure = Array.from(contentMap.entries()).map(([tag, items]) => ({
                 tag: tag,
                 items: items.map(item => ({
                     text: item.text,
-                    type: tag
+                    type: tag,
+                    isLink: item.isLink,
+                    href: item.href
                 }))
             }));
 
@@ -920,7 +1251,11 @@ class ThemePreviewImageHandler {
                     messages: [
                         {
                             role: "system",
-                            content: `You are an AI that creates website content. Generate content for a ${business} website. Use this specific prompt for guidance: ${storedPrompt}. Maintain the exact same structure and formatting. Return ONLY a valid JSON array with the exact same structure as provided, without any markdown formatting or code blocks.`
+                            content: `You are an AI that creates website content. Generate content for a ${business} website. 
+                            Use this specific prompt for guidance: ${storedPrompt}. 
+                            Maintain the exact same structure and formatting. 
+                            For links (<a> tags), generate appropriate text while preserving their original purpose and context.
+                            Return ONLY a valid JSON array with the exact same structure as provided, without any markdown formatting or code blocks.`
                         },
                         {
                             role: "user",
@@ -965,7 +1300,7 @@ class ThemePreviewImageHandler {
                         // Add individual loading state
                         const removeLoader = this.addLoadingState(element);
                         // Show loading state for a brief moment
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                        await new Promise(resolve => setTimeout(resolve, 700));
                         element.textContent = item.text;
                         const contentId = this.storeGeneratedContent(element, item.text, business);
                         if (!contentId) {
@@ -1430,26 +1765,174 @@ class ThemePreviewImageHandler {
 
     showThemeInfo() {
         const modal = document.createElement('div');
-        modal.className = 'theme-preview-modal';
-        modal.innerHTML = `
-            <div class="theme-preview-modal-content">
-                <h2>Theme Information</h2>
-                <div class="theme-info-grid">
-                    <div>Theme Name:</div><div>${this.settings.themeName || 'N/A'}</div>
-                    <div>Version:</div><div>${this.settings.themeVersion || 'N/A'}</div>
-                    <div>Author:</div><div>${this.settings.themeAuthor || 'N/A'}</div>
-                    <div>Description:</div><div>${this.settings.themeDescription || 'N/A'}</div>
-                </div>
-                <button class="theme-preview-modal-close">×</button>
-            </div>
+        modal.className = 'theme-info-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
         `;
-        
+
+        const content = document.createElement('div');
+        content.className = 'theme-info-content';
+        content.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            padding: 24px;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #666;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            &:hover {
+                color: #000;
+            }
+        `;
+
+        // Theme Info Sections
+        const sections = [
+            {
+                title: 'Theme Information',
+                items: [
+                    { label: 'Name', value: this.settings.themeName },
+                    { label: 'Version', value: this.settings.themeVersion },
+                    { label: 'Author', value: this.settings.themeAuthor },
+                    { label: 'Description', value: this.settings.themeDescription }
+                ]
+            },
+            {
+                title: 'Font Information',
+                items: [
+                    { label: 'Headings Font', value: this.getComputedFontFamily('h1, h2, h3, h4, h5, h6') },
+                    { label: 'Body Font', value: this.getComputedFontFamily('body') }
+                ]
+            },
+            {
+                title: 'Color Scheme',
+                items: [
+                    { label: 'Primary Color', value: this.getComputedStyle('--wp--preset--color--primary', '#000000') },
+                    { label: 'Secondary Color', value: this.getComputedStyle('--wp--preset--color--secondary', '#000000') },
+                    { label: 'Background Color', value: this.getComputedStyle('body', '#ffffff', 'backgroundColor') },
+                    { label: 'Text Color', value: this.getComputedStyle('body', '#000000', 'color') }
+                ]
+            },
+            {
+                title: 'Layout Information',
+                items: [
+                    { label: 'Content Width', value: this.getComputedStyle('body', 'auto', 'maxWidth') },
+                    { label: 'Spacing Unit', value: this.getComputedStyle('--wp--style--block-gap', '20px') }
+                ]
+            }
+        ];
+
+        sections.forEach(section => {
+            const sectionEl = document.createElement('div');
+            sectionEl.style.cssText = `
+                margin-bottom: 24px;
+                &:last-child {
+                    margin-bottom: 0;
+                }
+            `;
+
+            const title = document.createElement('h3');
+            title.textContent = section.title;
+            title.style.cssText = `
+                font-size: 18px;
+                font-weight: 600;
+                color: #1e1e1e;
+                margin: 0 0 16px 0;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #e0e0e0;
+            `;
+
+            const grid = document.createElement('div');
+            grid.style.cssText = `
+                display: grid;
+                grid-template-columns: 140px 1fr;
+                gap: 12px 16px;
+            `;
+
+            section.items.forEach(item => {
+                const label = document.createElement('div');
+                label.textContent = item.label;
+                label.style.cssText = `
+                    font-weight: 500;
+                    color: #666;
+                    font-size: 14px;
+                `;
+
+                const value = document.createElement('div');
+                value.textContent = item.value || 'Not specified';
+                value.style.cssText = `
+                    font-size: 14px;
+                    color: #1e1e1e;
+                `;
+
+                grid.appendChild(label);
+                grid.appendChild(value);
+            });
+
+            sectionEl.appendChild(title);
+            sectionEl.appendChild(grid);
+            content.appendChild(sectionEl);
+        });
+
+        content.appendChild(closeBtn);
+        modal.appendChild(content);
         document.body.appendChild(modal);
-        
-        modal.querySelector('.theme-preview-modal-close').onclick = () => modal.remove();
+
+        const closeModal = () => modal.remove();
+        closeBtn.onclick = closeModal;
         modal.onclick = (e) => {
-            if (e.target === modal) modal.remove();
+            if (e.target === modal) closeModal();
         };
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+    }
+
+    getComputedFontFamily(selector) {
+        const element = document.querySelector(selector);
+        if (!element) return 'Not found';
+        const style = window.getComputedStyle(element);
+        return style.fontFamily;
+    }
+
+    getComputedStyle(selector, fallback, property = null) {
+        if (selector.startsWith('--')) {
+            const value = getComputedStyle(document.documentElement).getPropertyValue(selector);
+            return value.trim() || fallback;
+        }
+        const element = document.querySelector(selector);
+        if (!element) return fallback;
+        const style = window.getComputedStyle(element);
+        return property ? style[property] : fallback;
     }
 
     showPromptModal(element = null, initialPrompt = '') {
@@ -2338,6 +2821,423 @@ class ThemePreviewImageHandler {
                 generateBtn.click();
                 document.removeEventListener('keydown', escHandler);
             }
+        });
+    }
+
+    // Function to show link edit modal
+    showLinkEditModal(element) {
+        const linkId = element.getAttribute('data-link-id') || this.generateLinkId(element);
+        element.setAttribute('data-link-id', linkId);
+
+        // Get stored link data if it exists
+        const storedData = localStorage.getItem(`edited_link_${linkId}`);
+        const linkData = storedData ? JSON.parse(storedData) : null;
+
+        const modal = document.createElement('div');
+        modal.className = 'link-edit-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+        `;
+
+        const content = document.createElement('div');
+        content.className = 'link-edit-modal-content';
+        content.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            width: 500px;
+            padding: 24px;
+            position: relative;
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = `
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        header.innerHTML = '<h3 style="margin: 0; font-size: 18px;">Edit Link Text</h3>';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = `
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #666;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+        `;
+        header.appendChild(closeBtn);
+
+        const form = document.createElement('div');
+        form.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        `;
+
+        // Text input field only
+        const textGroup = document.createElement('div');
+        textGroup.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+        textGroup.innerHTML = `
+            <label style="font-weight: 500; color: #333; font-size: 14px;">Link Text</label>
+            <input type="text" value="${element.textContent}" style="
+                padding: 8px 12px;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                &:focus {
+                    outline: none;
+                    border-color: #2196F3;
+                    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+                }
+            ">
+        `;
+
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 20px;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            padding: 8px 16px;
+            border: 1px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            &:hover {
+                background: #f5f5f5;
+            }
+        `;
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.style.cssText = `
+            padding: 8px 16px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            &:hover {
+                background: #1976D2;
+            }
+        `;
+
+        form.appendChild(textGroup);
+        buttonGroup.appendChild(cancelBtn);
+        buttonGroup.appendChild(saveBtn);
+        form.appendChild(buttonGroup);
+
+        content.appendChild(header);
+        content.appendChild(form);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Get input element
+        const textInput = textGroup.querySelector('input');
+
+        // Event handlers
+        const closeModal = () => modal.remove();
+
+        closeBtn.onclick = closeModal;
+        cancelBtn.onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        saveBtn.onclick = () => {
+            const newText = textInput.value;
+
+            // Save link data with hash
+            const linkId = this.saveLinkToStorage(element, newText);
+
+            // Update the link text only
+            element.textContent = newText;
+            element.setAttribute('data-is-edited', 'true');
+            element.setAttribute('data-link-id', linkId);
+            element.setAttribute('data-content-hash', this.generateContentHash(newText));
+
+            this.showToast('Link text updated successfully', 'success');
+            closeModal();
+        };
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                saveBtn.click();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+
+        // Focus the text input
+        textInput.focus();
+        textInput.select();
+    }
+
+    generateLinkId(element) {
+        const path = this.getElementPath(element);
+        const text = element.textContent.trim();
+        const timestamp = Date.now();
+        
+        const idString = `${path}_${text}_${timestamp}_${this.userId}`;
+        let hash = 0;
+        for (let i = 0; i < idString.length; i++) {
+            const char = idString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return `link_${Math.abs(hash)}`;
+    }
+
+    saveLinkToStorage(element, text) {
+        const linkId = element.getAttribute('data-link-id') || this.generateLinkId(element);
+        const linkData = {
+            text: text,
+            path: this.getElementPath(element),
+            timestamp: Date.now(),
+            userId: this.userId,
+            hash: this.generateContentHash(text)
+        };
+        localStorage.setItem(`edited_link_${linkId}`, JSON.stringify(linkData));
+        return linkId;
+    }
+
+    generateContentHash(content) {
+        let hash = 0;
+        for (let i = 0; i < content.length; i++) {
+            const char = content.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return `hash_${Math.abs(hash)}`;
+    }
+
+    recoverStoredLinks() {
+        // Get all stored link data
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('edited_link_')) {
+                const linkData = JSON.parse(localStorage.getItem(key));
+                if (linkData.userId === this.userId) {
+                    const element = this.findElementByPath(linkData.path);
+                    if (element && element.tagName === 'A') {
+                        // Verify content hash
+                        const currentHash = this.generateContentHash(linkData.text);
+                        if (currentHash === linkData.hash) {
+                            // Update text only
+                            element.textContent = linkData.text;
+                            element.setAttribute('data-is-edited', 'true');
+                            element.setAttribute('data-link-id', key.replace('edited_link_', ''));
+                            element.setAttribute('data-content-hash', linkData.hash);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    addLinkActionButtons() {
+        document.querySelectorAll('a').forEach(link => {
+            if (!this.shouldProcessLink(link)) return;
+            this.addLinkActionButton(link);
+        });
+    }
+
+    shouldProcessLink(link) {
+        return !link.hasAttribute('data-has-actions') && 
+               !link.closest('#wpadminbar, .theme-preview-toast, .content-actions');
+    }
+
+    addLinkActionButton(link) {
+        link.setAttribute('data-has-actions', 'true');
+        const wrapper = this.ensureWrapper(link);
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'link-actions-container';
+        actionsContainer.style.cssText = `
+            position: absolute;
+            top: -30px;
+            right: 0;
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 4px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        `;
+
+        // Only Edit button
+        const editButton = document.createElement('button');
+        editButton.className = 'link-action-button edit-button';
+        editButton.style.cssText = `
+            background: none;
+            border: none;
+            border-radius: 4px;
+            padding: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #1e1e1e;
+            transition: all 0.2s ease;
+            &:hover {
+                background: rgba(0,0,0,0.05);
+            }
+        `;
+        
+        editButton.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+            </svg>
+            <span>Edit Text</span>
+        `;
+        
+        editButton.addEventListener('click', () => this.showLinkEditModal(link));
+        actionsContainer.appendChild(editButton);
+
+        wrapper.appendChild(actionsContainer);
+
+        // Show/hide action buttons
+        wrapper.addEventListener('mouseenter', () => {
+            actionsContainer.style.opacity = '1';
+            actionsContainer.style.visibility = 'visible';
+        });
+        wrapper.addEventListener('mouseleave', () => {
+            actionsContainer.style.opacity = '0';
+            actionsContainer.style.visibility = 'hidden';
+        });
+    }
+
+    addContentActionButtons() {
+        document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, .wp-block-heading, .wp-block-paragraph').forEach(element => {
+            if (!this.shouldProcessContent(element)) return;
+            this.addContentActionButton(element);
+        });
+    }
+
+    shouldProcessContent(element) {
+        return !element.hasAttribute('data-has-actions') && 
+               !element.closest('#wpadminbar, .theme-preview-toast, .content-actions, .theme-preview-modal') &&
+               element.tagName !== 'A';
+    }
+
+    addContentActionButton(element) {
+        element.setAttribute('data-has-actions', 'true');
+        const wrapper = this.ensureWrapper(element);
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'content-actions-container';
+        actionsContainer.style.cssText = `
+            position: absolute;
+            top: -35px;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(8px);
+            transform: translateY(5px);
+        `;
+
+        const buttonStyle = `
+            background: none;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #1e1e1e;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            white-space: nowrap;
+            &:hover {
+                background: rgba(33, 150, 243, 0.1);
+                color: #2196F3;
+            }
+            &:active {
+                transform: scale(0.95);
+            }
+        `;
+
+        const buttons = [
+            {
+                name: 'Edit',
+                icon: '<path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>',
+                onClick: () => this.showEditModal(element)
+            },
+            {
+                name: 'Generate',
+                icon: '<path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>',
+                onClick: () => this.showGenerateModal(element)
+            }
+        ];
+
+        buttons.forEach(({name, icon, onClick}) => {
+            const button = document.createElement('button');
+            button.className = `content-action-button ${name.toLowerCase()}-button`;
+            button.style.cssText = buttonStyle;
+            button.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    ${icon}
+                </svg>
+                <span>${name}</span>
+            `;
+            
+            button.addEventListener('click', onClick);
+            actionsContainer.appendChild(button);
+        });
+
+        wrapper.appendChild(actionsContainer);
+
+        wrapper.addEventListener('mouseenter', () => {
+            actionsContainer.style.opacity = '1';
+            actionsContainer.style.visibility = 'visible';
+            actionsContainer.style.transform = 'translateY(0)';
+        });
+
+        wrapper.addEventListener('mouseleave', () => {
+            actionsContainer.style.opacity = '0';
+            actionsContainer.style.visibility = 'hidden';
+            actionsContainer.style.transform = 'translateY(5px)';
         });
     }
 }

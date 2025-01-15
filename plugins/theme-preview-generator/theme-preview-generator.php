@@ -25,7 +25,8 @@ class Theme_Preview_Generator {
         'openai_api_key' => '',
         'cloudinary_cloud_name' => '',
         'cloudinary_api_key' => '',
-        'cloudinary_api_secret' => ''
+        'cloudinary_api_secret' => '',
+        'unsplash_access_key' => ''
     );
     private $cloudinary;
     private $openai;
@@ -40,7 +41,7 @@ class Theme_Preview_Generator {
     }
 
     private function __construct() {
-        $this->settings = get_option('theme_preview_settings', $this->default_settings);
+        $this->settings = get_option('theme_preview_generator_settings', $this->default_settings);
         
         // Initialize handlers
         $this->cloudinary = new Theme_Preview_Cloudinary_Handler();
@@ -68,7 +69,8 @@ class Theme_Preview_Generator {
                 'default' => array(
                     'cloudinary_cloud_name' => '',
                     'cloudinary_upload_preset' => '',
-                    'openai_api_key' => ''
+                    'openai_api_key' => '',
+                    'unsplash_access_key' => ''
                 ),
                 'sanitize_callback' => array($this, 'sanitize_settings')
             )
@@ -105,6 +107,21 @@ class Theme_Preview_Generator {
                 'label_for' => 'cloudinary_upload_preset',
                 'field_name' => 'cloudinary_upload_preset',
                 'description' => 'Enter your Cloudinary upload preset (required for image uploads)'
+            )
+        );
+
+        // Unsplash Settings
+        add_settings_field(
+            'unsplash_access_key',
+            'Unsplash Access Key',
+            array($this, 'render_text_field'),
+            'theme_preview_generator',
+            'theme_preview_generator_section',
+            array(
+                'label_for' => 'unsplash_access_key',
+                'field_name' => 'unsplash_access_key',
+                'type' => 'password',
+                'description' => 'Enter your Unsplash access key for image search functionality'
             )
         );
 
@@ -151,7 +168,7 @@ class Theme_Preview_Generator {
 
     public function sanitize_settings($input) {
         $sanitized = array();
-        $fields = array('openai_api_key', 'cloudinary_cloud_name', 'cloudinary_upload_preset');
+        $fields = array('openai_api_key', 'cloudinary_cloud_name', 'cloudinary_upload_preset', 'unsplash_access_key');
         
         foreach ($fields as $field) {
             if (isset($input[$field])) {
@@ -204,37 +221,35 @@ class Theme_Preview_Generator {
     }
 
     public function get_setting($key) {
-        return isset($this->settings[$key]) ? $this->settings[$key] : '';
+        $settings = get_option('theme_preview_generator_settings', array());
+        return isset($settings[$key]) ? $settings[$key] : '';
     }
 
     public function enqueue_scripts() {
-        if (!is_admin()) {
-            $settings = get_option('theme_preview_generator_settings', array());
-            
-            wp_enqueue_script(
-                'theme-preview-generator',
-                plugins_url('assets/js/image-handler.js', __FILE__),
-                array('jquery'),
-                '1.0.0',
-                true
-            );
-
-            wp_localize_script(
-                'theme-preview-generator',
-                'themePreviewSettings',
-                array(
-                    'cloudName' => isset($settings['cloudinary_cloud_name']) ? $settings['cloudinary_cloud_name'] : '',
-                    'uploadPreset' => isset($settings['cloudinary_upload_preset']) ? $settings['cloudinary_upload_preset'] : '',
-                    'openaiApiKey' => isset($settings['openai_api_key']) ? $settings['openai_api_key'] : '',
-                    'themeName' => wp_get_theme()->get('Name'),
-                    'themeVersion' => wp_get_theme()->get('Version'),
-                    'themeAuthor' => wp_get_theme()->get('Author'),
-                    'themeDescription' => wp_get_theme()->get('Description'),
-                    'ajaxUrl' => admin_url('admin-ajax.php'),
-                    'nonce' => wp_create_nonce('theme_preview_generator')
-                )
-            );
+        if (!$this->is_preview_page()) {
+            return;
         }
+
+        wp_enqueue_script('theme-preview-image-handler', plugins_url('assets/js/image-handler.js', __FILE__), array('jquery'), '1.0.0', true);
+        
+        $current_theme = wp_get_theme();
+        wp_localize_script('theme-preview-image-handler', 'themePreviewSettings', array(
+            'cloudName' => $this->get_setting('cloudinary_cloud_name'),
+            'uploadPreset' => $this->get_setting('cloudinary_upload_preset'),
+            'openaiApiKey' => $this->get_setting('openai_api_key'),
+            'unsplashAccessKey' => $this->get_setting('unsplash_access_key'),
+            'themeName' => $current_theme->get('Name'),
+            'themeVersion' => $current_theme->get('Version'),
+            'themeAuthor' => $current_theme->get('Author'),
+            'themeDescription' => $current_theme->get('Description'),
+            'themeURI' => $current_theme->get('ThemeURI'),
+            'authorURI' => $current_theme->get('AuthorURI'),
+            'textDomain' => $current_theme->get('TextDomain'),
+            'domainPath' => $current_theme->get('DomainPath'),
+            'requiresWP' => $current_theme->get('RequiresWP'),
+            'requiresPHP' => $current_theme->get('RequiresPHP'),
+            'tags' => $current_theme->get('Tags')
+        ));
     }
 
     private function is_preview_page() {
@@ -699,100 +714,7 @@ class Theme_Preview_Generator {
                 });
             });
             
-            // Add action buttons to links
-            document.querySelectorAll('a').forEach(element => {
-                // Skip elements that should be ignored
-                if (element.hasAttribute('data-has-action')) return;
-                if (element.closest('.content-actions, #wpadminbar, script, style, noscript')) return;
-                
-                // Skip empty links or system links
-                if (!element.textContent.trim() || 
-                    element.href.includes('wp-admin') ||
-                    element.href.includes('wp-login') ||
-                    element.href.startsWith('#') ||
-                    element.href.startsWith('javascript:')) {
-                    return;
-                }
-
-                element.setAttribute('data-has-action', 'true');
-
-                // Create wrapper that preserves original link styling and layout
-                const wrapper = document.createElement('span');
-                wrapper.style.cssText = `
-                    position: relative;
-                    display: inline;
-                `;
-                
-                // Insert wrapper while maintaining original DOM structure
-                const parent = element.parentNode;
-                const sibling = element.nextSibling;
-                wrapper.appendChild(element);
-                if (sibling) {
-                    parent.insertBefore(wrapper, sibling);
-                } else {
-                    parent.appendChild(wrapper);
-                }
-
-                // Create actions container that floats above content
-                const actions = document.createElement('div');
-                actions.className = 'content-actions';
-                actions.style.cssText = `
-                    position: absolute;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    right: -40px;
-                    display: none;
-                    z-index: 999999;
-                    background: white;
-                    padding: 4px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                    pointer-events: none;
-                    opacity: 0;
-                    transition: opacity 0.2s ease;
-                `;
-
-                // Add edit button
-                const editBtn = createActionButton('Edit', 'pencil');
-                editBtn.style.pointerEvents = 'auto';
-                editBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open('https://chat.openai.com', '_blank');
-                });
-
-                // Add copy button
-                const copyBtn = createActionButton('Copy', 'copy'); 
-                copyBtn.style.pointerEvents = 'auto';
-                copyBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(element.href).then(() => {
-                        showToast('Link URL copied to clipboard!');
-                    });
-                });
-
-                actions.appendChild(editBtn);
-                actions.appendChild(copyBtn);
-                wrapper.appendChild(actions);
-
-                // Show/hide actions on hover without affecting link style
-                wrapper.addEventListener('mouseenter', () => {
-                    actions.style.display = 'flex';
-                    setTimeout(() => {
-                        actions.style.opacity = '1';
-                        actions.style.pointerEvents = 'auto';
-                    }, 0);
-                });
-
-                wrapper.addEventListener('mouseleave', () => {
-                    actions.style.opacity = '0';
-                    actions.style.pointerEvents = 'none';
-                    setTimeout(() => {
-                        actions.style.display = 'none';
-                    }, 200);
-                });
-            });
+          
 
             // Add action buttons to cover block images and buttons
             document.addEventListener('DOMContentLoaded', function() {
@@ -871,6 +793,13 @@ class Theme_Preview_Generator {
                         window.open('https://chat.openai.com', '_blank');
                     });
                     actions.appendChild(editBtn);
+
+                    // Add Unsplash button
+                    const unsplashBtn = createActionButton('Unsplash', 'camera');
+                    unsplashBtn.addEventListener('click', () => {
+                        showUnsplashModal(element);
+                    });
+                    actions.appendChild(unsplashBtn);
 
                     wrapper.appendChild(actions);
 
@@ -976,6 +905,12 @@ class Theme_Preview_Generator {
                     iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>`;
+                    break;
+                case 'camera':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>`;
                     break;
             }
@@ -1401,10 +1336,7 @@ class Theme_Preview_Generator {
                     href.includes('wp-admin') || 
                     href.includes('wp-login') || 
                     href.startsWith('#') || 
-                    href.startsWith('javascript:') || 
-                    href.includes('wp-json') || 
-                    href.includes('/feed') || 
-                    href.includes('xmlrpc.php')) {
+                    href.startsWith('javascript:')) {
                     return;
                 }
 
@@ -1512,6 +1444,13 @@ class Theme_Preview_Generator {
                         });
                         actions.appendChild(previewBtn);
                     }
+
+                    // Add Unsplash button
+                    const unsplashBtn = createActionButton('Unsplash', 'camera');
+                    unsplashBtn.addEventListener('click', () => {
+                        showUnsplashModal(element);
+                    });
+                    actions.appendChild(unsplashBtn);
 
                     actionOverlay.appendChild(actions);
 
@@ -1939,6 +1878,13 @@ class Theme_Preview_Generator {
                     });
                     actions.appendChild(editBtn);
 
+                    // Add Unsplash button
+                    const unsplashBtn = createActionButton('Unsplash', 'camera');
+                    unsplashBtn.addEventListener('click', () => {
+                        showUnsplashModal(element);
+                    });
+                    actions.appendChild(unsplashBtn);
+
                     wrapper.appendChild(actions);
 
                     // Show/hide action buttons
@@ -2043,6 +1989,17 @@ class Theme_Preview_Generator {
                     iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>`;
+                    break;
+                case 'upload':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>`;
+                    break;
+                case 'camera':
+                    iconSvg = `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>`;
                     break;
             }
@@ -3707,6 +3664,13 @@ class Theme_Preview_Generator {
                         });
                         actions.appendChild(previewBtn);
                     }
+
+                    // Add Unsplash button
+                    const unsplashBtn = createActionButton('Unsplash', 'camera');
+                    unsplashBtn.addEventListener('click', () => {
+                        showUnsplashModal(element);
+                    });
+                    actions.appendChild(unsplashBtn);
 
                     actionOverlay.appendChild(actions);
 
